@@ -27,4 +27,5 @@ else
 fi
 
 echo "Artifacts (if successful):"
-find "${SPKSRC_DIR}/spk/openlist" -maxdepth 1 -name 'openlist_*.spk' -print
+find "${SPKSRC_DIR}/packages" -maxdepth 1 -name 'openlist_*.spk' -print 2>/dev/null
+find "${SPKSRC_DIR}/spk/openlist" -maxdepth 1 -name '*.spk' -print 2>/dev/null
