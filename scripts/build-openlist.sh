@@ -9,6 +9,11 @@ TCVERSION="${TCVERSION:-7.3}"
 
 "${ROOT}/scripts/apply-overlay.sh" "${SPKSRC_DIR}"
 
+export CARGO_HOME="${SPKSRC_DIR}/distrib/cargo"
+export RUSTUP_HOME="${SPKSRC_DIR}/distrib/rustup"
+mkdir -p "${CARGO_HOME}" "${RUSTUP_HOME}"
+export PATH="${CARGO_HOME}/bin:${PATH}"
+
 if [ ! -f "${SPKSRC_DIR}/local.mk" ]; then
   make -C "${SPKSRC_DIR}" setup
 fi
