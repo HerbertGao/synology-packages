@@ -1,0 +1,93 @@
+OPENLIST="${SYNOPKG_PKGDEST}/bin/openlist --data ${SYNOPKG_PKGVAR}"
+CONFIG_FILE="${SYNOPKG_PKGVAR}/config.json"
+DEFAULT_HTTP_PORT="5244"
+
+SERVICE_COMMAND="${OPENLIST} server"
+SVC_BACKGROUND=yes
+SVC_WRITE_PID=yes
+
+openlist_runtime_http_port ()
+{
+    if [ ! -f "${CONFIG_FILE}" ]; then
+        echo "${DEFAULT_HTTP_PORT}"
+        return
+    fi
+    grep -E '"http_port"' "${CONFIG_FILE}" | head -1 | sed -E 's/.*"http_port"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/'
+}
+
+service_save ()
+{
+    if [ "${SYNOPKG_PKG_STATUS}" != "UPGRADE" ]; then
+        return 0
+    fi
+  # Preserve live configuration and database paths across in-place upgrades.
+    if [ -f "${CONFIG_FILE}" ]; then
+        $CP "${CONFIG_FILE}" "${SYNOPKG_TEMP_UPGRADE_FOLDER}/config.json"
+        touch "${SYNOPKG_TEMP_UPGRADE_FOLDER}/.has_config"
+    fi
+    for item in data.db data.db-shm data.db-wal bleve log temp; do
+        if [ -e "${SYNOPKG_PKGVAR}/${item}" ]; then
+            $CP -a "${SYNOPKG_PKGVAR}/${item}" "${SYNOPKG_TEMP_UPGRADE_FOLDER}/"
+        fi
+    done
+}
+
+service_restore ()
+{
+    if [ ! -f "${SYNOPKG_TEMP_UPGRADE_FOLDER}/.has_config" ]; then
+        return 0
+    fi
+    $CP "${SYNOPKG_TEMP_UPGRADE_FOLDER}/config.json" "${CONFIG_FILE}"
+    for item in data.db data.db-shm data.db-wal bleve log temp; do
+        if [ -e "${SYNOPKG_TEMP_UPGRADE_FOLDER}/${item}" ]; then
+            $CP -a "${SYNOPKG_TEMP_UPGRADE_FOLDER}/${item}" "${SYNOPKG_PKGVAR}/"
+        fi
+    done
+}
+
+validate_preupgrade ()
+{
+    if [ "${SYNOPKG_PKG_STATUS}" != "UPGRADE" ]; then
+        return 0
+    fi
+    if [ ! -f "${CONFIG_FILE}" ]; then
+        echo "Missing ${CONFIG_FILE}; aborting upgrade to avoid data loss."
+        exit 1
+    fi
+}
+
+service_postinst ()
+{
+    if [ "${SYNOPKG_PKG_STATUS}" == "INSTALL" ]; then
+        JWT_SECRET=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+
+        SITE_URL=$(echo -n "${wizard_site_url}" | sed 's|/$||')
+
+        sed -e "s|%site_url%|${SITE_URL}|g" \
+            -e "s|%jwt_secret%|${JWT_SECRET}|g" \
+            -e "s|%data%|${SYNOPKG_PKGVAR}|g" \
+            -i "${CONFIG_FILE}"
+
+        if [ -n "${wizard_admin_password}" ]; then
+            ${OPENLIST} admin set "${wizard_admin_password}"
+        fi
+    fi
+}
+
+service_postupgrade ()
+{
+    # Keep existing config.json (custom http_port included). Run built-in migrations only.
+    if [ ! -f "${CONFIG_FILE}" ]; then
+        echo "config.json missing after upgrade restore; manual intervention required."
+        exit 1
+    fi
+    if ! ${OPENLIST} migrate 2>/tmp/openlist-migrate.log; then
+        echo "OpenList migrate failed; see /tmp/openlist-migrate.log"
+        echo "Package left installed; restore from backup before retrying downgrade."
+        exit 1
+    fi
+    RUNTIME_PORT=$(openlist_runtime_http_port)
+    if [ -n "${RUNTIME_PORT}" ] && [ "${RUNTIME_PORT}" != "${DEFAULT_HTTP_PORT}" ]; then
+        echo "Runtime HTTP port is ${RUNTIME_PORT} (custom). Package Center INFO/adminport and DSM firewall rule remain wired to default ${DEFAULT_HTTP_PORT} unless you adjust them manually."
+    fi
+}

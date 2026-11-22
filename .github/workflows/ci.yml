@@ -1,0 +1,52 @@
+name: openlist-ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630cea61a8f375c95c99c9ecd # v4.2.2
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck rsync
+
+      - name: Run static checks
+        run: ./scripts/ci-run-checks.sh
+
+  spk-build:
+    runs-on: ubuntu-latest
+    needs: static-checks
+    timeout-minutes: 120
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630cea61a8f375c95c99c9ecd # v4.2.2
+
+      - name: Build SPK in SynoCommunity container
+        run: |
+          docker pull ghcr.io/synocommunity/spksrc
+          docker run --rm --platform=linux/amd64 \
+            -v "${{ github.workspace }}:/repo" -w /repo \
+            ghcr.io/synocommunity/spksrc \
+            bash -lc 'apt-get update && apt-get install -y rsync && chmod +x scripts/*.sh && ./scripts/build-openlist.sh'
+
+      - name: Upload SPK artifacts
+        if: success()
+        uses: actions/upload-artifact@330a01c4903396d785a985b13f585f6ac5c10a42 # v4.1.0
+        with:
+          name: openlist-spk-apollolake-7.3
+          path: .build/spksrc/spk/openlist/*.spk
+          if-no-files-found: warn

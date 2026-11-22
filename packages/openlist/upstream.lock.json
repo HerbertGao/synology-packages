@@ -1,0 +1,38 @@
+{
+  "openlist_version": "4.2.10",
+  "spksrc": {
+    "repository": "https://github.com/SynoCommunity/spksrc.git",
+    "commit": "f29cd8b7e080e87fda0461c9eed486428e23426d",
+    "note": "Pinned baseline; upstream openlist recipe on this commit still targets 4.2.7 — overlay bumps to 4.2.10."
+  },
+  "targets": [
+    {
+      "device": "DS918+",
+      "arch": "apollolake",
+      "abi": "x86_64",
+      "dsm": "7.3",
+      "make_args": "ARCH=apollolake TCVERSION=7.3"
+    }
+  ],
+  "artifacts": {
+    "openlist_source": {
+      "url": "https://github.com/OpenListTeam/OpenList/archive/refs/tags/v4.2.10.tar.gz",
+      "dist_file": "OpenList-4.2.10.tar.gz",
+      "sha256": "4e45a675ee4719a98038a64f0f2095bd82146bb7342466f42d2407f5d3e701f7",
+      "sha1": "9a944724c1f212254d8a907f415fe3a220418a05",
+      "md5": "3fa38756475a118ada2598dd8f574e5d"
+    },
+    "openlist_frontend": {
+      "url": "https://github.com/OpenListTeam/OpenList-Frontend/releases/download/v4.2.10/openlist-frontend-dist-v4.2.10.tar.gz",
+      "dist_file": "openlist-frontend-dist-v4.2.10.tar.gz",
+      "sha256": "4e137046ef350ca847bff145824ed2ffe9948a05c39a6e269b80c69eb13fc636",
+      "sha1": "bb14c7d05f812b2b6f491011b11a2afefece7feb",
+      "md5": "18dec5333efddd7b7c11348bb58ef3fb"
+    }
+  },
+  "license": {
+    "openlist": "AGPL-3.0",
+    "openlist_frontend": "MIT",
+    "spksrc": "See SynoCommunity/spksrc repository license"
+  }
+}
