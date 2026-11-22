@@ -1,5 +1,16 @@
 # shellcheck shell=sh
 # Sourced by Synology DSM via spksrc; not executed as a standalone script.
+# shellcheck disable=SC2034,SC2154 -- SERVICE_COMMAND/SVC_* are consumed by spksrc start-stop-status after merge.
+
+_openlist_port_sync="${SYNOPKG_PKGDEST}/scripts/openlist-dsm-port-sync.sh"
+if [ ! -f "${_openlist_port_sync}" ] && [ -n "${OPENLIST_PORT_SYNC_SH}" ]; then
+    _openlist_port_sync="${OPENLIST_PORT_SYNC_SH}"
+fi
+if [ -f "${_openlist_port_sync}" ]; then
+    # shellcheck source=/dev/null
+    . "${_openlist_port_sync}"
+fi
+
 OPENLIST="${SYNOPKG_PKGDEST}/bin/openlist --data ${SYNOPKG_PKGVAR}"
 CONFIG_FILE="${SYNOPKG_PKGVAR}/config.json"
 DEFAULT_HTTP_PORT="5244"
@@ -10,11 +21,9 @@ SVC_WRITE_PID=yes
 
 openlist_runtime_http_port ()
 {
-    if [ ! -f "${CONFIG_FILE}" ]; then
-        echo "${DEFAULT_HTTP_PORT}"
-        return
-    fi
-    grep -E '"http_port"' "${CONFIG_FILE}" | head -1 | sed -E 's/.*"http_port"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/'
+    _p
+    _p=$(openlist_read_http_port_from_config 2>/dev/null) || echo "${DEFAULT_HTTP_PORT}"
+    echo "${_p}"
 }
 
 service_save ()
@@ -22,7 +31,6 @@ service_save ()
     if [ "${SYNOPKG_PKG_STATUS}" != "UPGRADE" ]; then
         return 0
     fi
-  # Preserve live configuration and database paths across in-place upgrades.
     if [ -f "${CONFIG_FILE}" ]; then
         $CP "${CONFIG_FILE}" "${SYNOPKG_TEMP_UPGRADE_FOLDER}/config.json"
         touch "${SYNOPKG_TEMP_UPGRADE_FOLDER}/.has_config"
@@ -74,22 +82,27 @@ service_postinst ()
             ${OPENLIST} admin set "${wizard_admin_password}"
         fi
     fi
+    openlist_sync_dsm_port_metadata || true
 }
 
 service_postupgrade ()
 {
-    # Keep existing config.json (custom http_port included). Run built-in migrations only.
     if [ ! -f "${CONFIG_FILE}" ]; then
         echo "config.json missing after upgrade restore; manual intervention required."
         exit 1
     fi
+    if ! openlist_sync_dsm_port_metadata; then
+        echo "DSM port metadata sync failed; upgrade continues (OpenList config unchanged)."
+    fi
     if ! ${OPENLIST} migrate 2>/tmp/openlist-migrate.log; then
         echo "OpenList migrate failed; see /tmp/openlist-migrate.log"
-        echo "Package left installed; restore from backup before retrying downgrade."
+        echo "Package left installed; data under ${SYNOPKG_PKGVAR} preserved."
         exit 1
     fi
-    RUNTIME_PORT=$(openlist_runtime_http_port)
-    if [ -n "${RUNTIME_PORT}" ] && [ "${RUNTIME_PORT}" != "${DEFAULT_HTTP_PORT}" ]; then
-        echo "Runtime HTTP port is ${RUNTIME_PORT} (custom). Package Center INFO/adminport and DSM firewall rule remain wired to default ${DEFAULT_HTTP_PORT} unless you adjust them manually."
-    fi
+    openlist_sync_dsm_port_metadata || true
+}
+
+service_poststart ()
+{
+    openlist_sync_dsm_port_metadata || true
 }

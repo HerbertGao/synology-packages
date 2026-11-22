@@ -7,6 +7,8 @@
 - [ ] `scripts/verify-upstream-digests.sh` 通过（官方发布物摘要与 `upstream.lock.json` 一致）
 - [ ] `scripts/check-port-consistency.sh` 通过（默认 5244 一致）
 - [ ] `scripts/test-upgrade-preservation.sh` 通过（模拟保留自定义端口与 `data.db`）
+- [ ] `scripts/test-port-sync.sh` 通过（模拟 5244/5255、幂等、非法端口；非真机 UI）
+- [ ] `scripts/test-migrate-failure-sim.sh` 通过（模拟 migrate 失败保留数据）
 - [ ] `shellcheck` 无 error（若 runner 已安装）
 
 ## 2. SPK 构建（Docker / 本地 spksrc）
@@ -18,9 +20,8 @@
 ## 3. DSM 真机（需人工授权 — 本轮未执行）
 
 - [ ] DS918+ / DSM 7.3 全新安装：向导、默认 5244、服务用户 `sc-openlist` 正常
-- [ ] 自定义 `http_port` 后原地升级到 4.2.10：配置与数据保留
-- [ ] 套件中心打开链接与真实端口差异已知晓并接受（见 `upgrade.md`）
-- [ ] 防火墙：默认规则与自定义端口场景符合预期
+- [ ] 自定义 `http_port` 后原地升级到 4.2.10：配置与数据保留，且 `app/config` / INFO / `.sc` 已同步（脚本层）
+- [ ] 套件中心图标「打开」与防火墙即时生效（DSM 会话重载边界见 `upgrade.md`）
 - [ ] 回滚演练（备份恢复）至少一次
 
 ## 候选版本记录（非本轮目标）

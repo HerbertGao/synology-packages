@@ -14,7 +14,12 @@ if [ ! -f "${SPKSRC_DIR}/local.mk" ]; then
 fi
 
 echo "Building openlist for ${ARCH} DSM ${TCVERSION} (not validated on real hardware in CI)"
-make -C "${SPKSRC_DIR}/spk/openlist" "ARCH=${ARCH}" "TCVERSION=${TCVERSION}"
+TARGET="spk-openlist-${ARCH}-${TCVERSION}"
+if make -C "${SPKSRC_DIR}" -n "${TARGET}" >/dev/null 2>&1; then
+  make -C "${SPKSRC_DIR}" "${TARGET}"
+else
+  make -C "${SPKSRC_DIR}/spk/openlist" "arch-${ARCH}" "TCVERSION=${TCVERSION}"
+fi
 
 echo "Artifacts (if successful):"
 find "${SPKSRC_DIR}/spk/openlist" -maxdepth 1 -name 'openlist_*.spk' -print

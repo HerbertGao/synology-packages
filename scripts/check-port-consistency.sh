@@ -28,4 +28,9 @@ for label in SERVICE_PORT CONFIG_TEMPLATE DEFAULT_HTTP_PORT; do
 done
 
 echo "OK default packaging ports consistent at ${service_port}"
-echo "NOTE: DSM Package Center INFO adminport is generated from SERVICE_PORT at build time; runtime custom ports in config.json are not auto-synced to INFO or firewall rules."
+SYNC="${ROOT}/packages/openlist/overlay/spk/openlist/src/openlist-dsm-port-sync.sh"
+if [ ! -f "${SYNC}" ]; then
+  echo "Missing runtime port sync helper: ${SYNC}" >&2
+  exit 1
+fi
+echo "OK runtime sync helper present (openlist_sync_dsm_port_metadata); build-time SERVICE_PORT remains default ${service_port} per spksrc.service.mk."

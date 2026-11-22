@@ -28,7 +28,14 @@ else
   git -C "${SPKSRC_DIR}" checkout "${PINNED_SHA}"
 fi
 
+if ! command -v rsync >/dev/null 2>&1; then
+  echo "rsync is required" >&2
+  exit 1
+fi
+
 echo "Applying overlay to spksrc @ ${PINNED_SHA}"
-rsync -a --delete "${OVERLAY}/" "${SPKSRC_DIR}/"
+# Never rsync --delete at spksrc root: overlay only contains cross/ and spk/ recipe deltas.
+rsync -a "${OVERLAY}/cross/" "${SPKSRC_DIR}/cross/"
+rsync -a "${OVERLAY}/spk/" "${SPKSRC_DIR}/spk/"
 
 echo "Overlay applied. Tree ready at ${SPKSRC_DIR}"

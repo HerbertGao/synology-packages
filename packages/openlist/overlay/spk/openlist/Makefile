@@ -36,3 +36,4 @@ openlist_extra_install:
 	@$(MSG) Install default config template (fresh installs only; var/ is not overwritten on upgrade)
 	@install -m 755 -d $(STAGING_DIR)/var
 	@install -m 644 src/config.json $(STAGING_DIR)/var/config.json
+	@install -m 644 src/openlist-dsm-port-sync.sh $(STAGING_DIR)/scripts/openlist-dsm-port-sync.sh

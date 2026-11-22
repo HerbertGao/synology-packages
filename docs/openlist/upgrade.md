@@ -16,11 +16,24 @@
 
 | 来源 | 默认端口 | 说明 |
 | --- | --- | --- |
-| `SERVICE_PORT` / `ADMIN_PORT`（INFO） | 5244 | 编译期写入套件元数据 |
-| `config.json` → `scheme.http_port` | 5244（新装） | **运行时真实监听端口** |
-| DSM 防火墙（`openlist.sc` 等） | 通常跟随 INFO 默认 | 自定义端口需手动放行 |
+| `SERVICE_PORT` / `ADMIN_PORT`（INFO，构建期） | 5244 | spksrc `mk/spksrc.service.mk` 在**编译 SPK** 时生成 `app/config`、`app/openlist.sc`、`INFO` 默认值 |
+| `config.json` → `scheme.http_port` | 5244（新装） | **OpenList 实际监听端口** |
+| 运行时同步（本 overlay） | 读 `config.json` | `openlist_sync_dsm_port_metadata` 在安装/升级/启动后写回 `target/app/config`、`*.sc`、`/var/packages/openlist/INFO` 的 `adminport` |
 
-若用户已将 `http_port` 改为非 5244（例如 5255），**升级会保留该值**，但 Package Center 的「打开」链接与 INFO 中的 `adminport` **不会**自动改为自定义端口。这是 DSM 静态元数据与运行时配置分离的已知取舍，不能伪造为「全自动一致」。
+### 平台依据与剩余边界
+
+- **构建期机制**（官方/spksrc）：`SERVICE_PORT` 生成 DSM7 的 `app/$(SPK_NAME).sc`（`dst.ports`）与 `app/config` 的 `port` 字段；`ADMIN_PORT` 写入 INFO（见 `mk/spksrc.spk.mk`、`mk/spksrc.service.mk`）。spksrc **没有**在运行时从 `config.json` 重算这些文件的 API。
+- **本仓库替代设计**：在 `service_postinst` / `service_postupgrade` / `service_poststart` 调用 `openlist-dsm-port-sync.sh`，按 `scheme.http_port` 幂等更新上述文件；升级仍由 `service_save`/`service_restore` 保留自定义端口（含 5255）。
+- **仍无法在套件脚本中保证的部分**（需 NAS 实测）：DSM 是否立即刷新已登录会话中的套件中心 UI、以及防火墙 daemon 是否无需额外 `synopkg` 动作即重载规则。文件内容与 OpenList 监听端口对齐；若 UI 仍显示旧端口，停止并重新启动套件或重新登录 DSM 后再试。
+
+### 自动化测试说明
+
+| 脚本 | 环境 |
+| --- | --- |
+| `scripts/test-port-sync.sh` | **模拟**（假 `app/`、`INFO` 树 + python3） |
+| `scripts/test-upgrade-preservation.sh` | **模拟**（升级备份/恢复 + 端口同步） |
+| `scripts/test-migrate-failure-sim.sh` | **模拟**（migrate 失败退出、数据仍在） |
+| DSM 真机图标/防火墙即时生效 | **未测**（需用户另行授权 NAS） |
 
 ## 推荐步骤（人工 DSM）
 
