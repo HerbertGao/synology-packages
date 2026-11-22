@@ -1,6 +1,7 @@
 # shellcheck shell=sh
 # Sourced by Synology DSM via spksrc; not executed as a standalone script.
-# shellcheck disable=SC2034,SC2154 -- SERVICE_COMMAND/SVC_* are consumed by spksrc start-stop-status after merge.
+# SERVICE_COMMAND/SVC_* are consumed by spksrc start-stop-status after merge.
+# shellcheck disable=SC2034,SC2154
 
 _openlist_port_sync="${SYNOPKG_PKGDEST}/scripts/openlist-dsm-port-sync.sh"
 if [ ! -f "${_openlist_port_sync}" ] && [ -n "${OPENLIST_PORT_SYNC_SH}" ]; then
