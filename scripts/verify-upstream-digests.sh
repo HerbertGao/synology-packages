@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-LOCK="${ROOT}/packages/openlist/upstream.lock.json"
 TMP="${ROOT}/.build/verify"
 mkdir -p "${TMP}"
 

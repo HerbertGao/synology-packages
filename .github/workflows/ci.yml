@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload SPK artifacts
         if: success()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@1eb3cb2b3e0f29609092a73eb033bb759a334595 # v4.1.0
         with:
           name: openlist-spk-apollolake-7.3
           path: .build/spksrc/spk/openlist/*.spk

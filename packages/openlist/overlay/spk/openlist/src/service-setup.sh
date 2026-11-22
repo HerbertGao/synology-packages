@@ -1,3 +1,5 @@
+# shellcheck shell=sh
+# Sourced by Synology DSM via spksrc; not executed as a standalone script.
 OPENLIST="${SYNOPKG_PKGDEST}/bin/openlist --data ${SYNOPKG_PKGVAR}"
 CONFIG_FILE="${SYNOPKG_PKGVAR}/config.json"
 DEFAULT_HTTP_PORT="5244"

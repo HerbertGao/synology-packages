@@ -19,9 +19,9 @@ cp "${ROOT}/packages/openlist/overlay/spk/openlist/src/config.json" "${SYNOPKG_P
 sed -i 's/"http_port": 5244/"http_port": 5255/' "${SYNOPKG_PKGVAR}/config.json"
 echo "probe" > "${SYNOPKG_PKGVAR}/data.db"
 
-CP=cp
+export CP=cp
 # shellcheck disable=SC1090
-source "${SVC}"
+. "${SVC}"
 
 service_save
 rm -f "${SYNOPKG_PKGVAR}/config.json"

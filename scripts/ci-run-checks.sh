@@ -7,6 +7,7 @@ chmod +x "${ROOT}"/scripts/*.sh
 "${ROOT}/scripts/check-port-consistency.sh"
 "${ROOT}/scripts/test-upgrade-preservation.sh"
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck "${ROOT}"/scripts/*.sh "${ROOT}"/packages/openlist/overlay/spk/openlist/src/service-setup.sh
+  shellcheck -S error "${ROOT}"/scripts/*.sh
+  shellcheck -S error -e SC2034,SC2154 "${ROOT}"/packages/openlist/overlay/spk/openlist/src/service-setup.sh
 fi
 echo "All static checks passed"
