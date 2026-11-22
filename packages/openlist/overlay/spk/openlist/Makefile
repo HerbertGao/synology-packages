@@ -33,7 +33,7 @@ include ../../mk/spksrc.spk.mk
 
 .PHONY: openlist_extra_install
 openlist_extra_install:
-	@$(MSG) Install default config template (fresh installs only; var/ is not overwritten on upgrade)
+	@$(MSG) Install default config template for fresh installs only
 	@install -m 755 -d $(STAGING_DIR)/var
 	@install -m 644 src/config.json $(STAGING_DIR)/var/config.json
 	@install -m 755 -d $(STAGING_DIR)/scripts
