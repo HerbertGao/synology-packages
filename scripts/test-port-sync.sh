@@ -73,32 +73,34 @@ assert_sc_port "${WORK}/target/app/openlist.sc" "5244"
 grep -q '"port": "5244"' "${WORK}/target/app/config"
 grep -q 'adminport="5244"' "${WORK}/var-packages/openlist/INFO"
 
-echo "case: custom 5255"
+echo "case: config http_port 5255 does not rewrite DSM metadata"
 sed -i 's/"http_port": 5244/"http_port": 5255/' "${CONFIG_FILE}"
+# Drift DSM files to a non-upstream port; sync must restore 5244, not 5255.
+sed -i 's/dst.ports="5244\/tcp"/dst.ports="5255\/tcp"/' "${WORK}/target/app/openlist.sc"
+sed -i 's/"port": "5244"/"port": "5266"/' "${WORK}/target/app/config"
+sed -i 's/adminport="5244"/adminport="5266"/' "${WORK}/var-packages/openlist/INFO"
 run_sync
-assert_sc_port "${WORK}/target/app/openlist.sc" "5255"
-assert_sc_port "${WORK}/var-packages/openlist/conf/openlist.sc" "5255"
-grep -q '"port": "5255"' "${WORK}/target/app/config"
-grep -q 'adminport="5255"' "${WORK}/var-packages/openlist/INFO"
+assert_sc_port "${WORK}/target/app/openlist.sc" "5244"
+assert_sc_port "${WORK}/var-packages/openlist/conf/openlist.sc" "5244"
+grep -q '"port": "5244"' "${WORK}/target/app/config"
+grep -q 'adminport="5244"' "${WORK}/var-packages/openlist/INFO"
+grep -q '"http_port": 5255' "${CONFIG_FILE}"
 
 echo "case: idempotent second run"
 run_sync
 run_sync
 
-echo "case: service_prestart hook syncs after port change"
+echo "case: service_prestart keeps DSM at 5244 when config differs"
 sed -i 's/"http_port": 5255/"http_port": 5266/' "${CONFIG_FILE}"
+sed -i 's/dst.ports="5244\/tcp"/dst.ports="5266\/tcp"/' "${WORK}/target/app/openlist.sc"
 # shellcheck disable=SC1090,SC1091
 . "${SVC}"
 service_prestart
-assert_sc_port "${WORK}/target/app/openlist.sc" "5266"
+assert_sc_port "${WORK}/target/app/openlist.sc" "5244"
 
-echo "case: invalid http_port"
-printf '%s\n' '{"scheme":{"http_port":70000}}' >"${CONFIG_FILE}"
-if openlist_sync_dsm_port_metadata; then
-  echo "FAIL: expected invalid port rejection" >&2
-  exit 1
-fi
-# Prior integration files unchanged (5266 from prestart case)
-assert_sc_port "${WORK}/target/app/openlist.sc" "5266"
+echo "case: missing config still syncs to 5244"
+rm -f "${CONFIG_FILE}"
+run_sync
+assert_sc_port "${WORK}/target/app/openlist.sc" "5244"
 
 echo "OK port-sync simulation passed (DSM UI session may still need refresh; not tested here)"

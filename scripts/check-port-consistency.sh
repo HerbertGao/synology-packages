@@ -35,4 +35,8 @@ if ! grep -q 'service_prestart' "${SVC}"; then
   echo "service-setup.sh must define service_prestart for DSM port sync on restart" >&2
   exit 1
 fi
-echo "OK runtime sync helper present (openlist_sync_dsm_port_metadata); build-time SERVICE_PORT remains default ${service_port} per spksrc.service.mk."
+if ! grep -q "^OPENLIST_DSM_SERVICE_PORT=${service_port}\$" "${SYNC}"; then
+  echo "OPENLIST_DSM_SERVICE_PORT in ${SYNC} must equal SERVICE_PORT (${service_port})" >&2
+  exit 1
+fi
+echo "OK runtime sync helper present; DSM metadata pinned to upstream SERVICE_PORT ${service_port}."
