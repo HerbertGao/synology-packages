@@ -41,56 +41,8 @@ if [ "${username}" != "EasyTier" ] || [ "${groupname}" != "EasyTier" ]; then
 fi
 
 if jq -e '.["ctrl-script"]' "${PRIV}" >/dev/null 2>&1; then
-  invalid_actions="$(jq -r '.["ctrl-script"][]?.action // empty' "${PRIV}" | while read -r action; do
-    case "${action}" in
-      preinst|postinst|preuninst|postuninst|preupgrade|postupgrade|start|stop|status|prestart|prestop) ;;
-      *) echo "${action}" ;;
-    esac
-  done)"
-  if [ -n "${invalid_actions}" ]; then
-    echo "FAIL: invalid ctrl-script action(s): ${invalid_actions}" >&2
-    exit 1
-  fi
-
-  invalid_run_as="$(jq -r '.["ctrl-script"][]?."run-as" // empty' "${PRIV}" | while read -r ras; do
-    case "${ras}" in
-      root|package) ;;
-      *) echo "${ras}" ;;
-    esac
-  done)"
-  if [ -n "${invalid_run_as}" ]; then
-    echo "FAIL: ctrl-script run-as must be root or package, got: ${invalid_run_as}" >&2
-    exit 1
-  fi
-
-  bloated="$(jq -r '.["ctrl-script"][]? | select(.action | IN("preinst","postinst","preuninst","postuninst","preupgrade","postupgrade","prestart","prestop")) | .action' "${PRIV}")"
-  if [ -n "${bloated}" ]; then
-    echo "FAIL: ctrl-script must not elevate install hooks (found: ${bloated})" >&2
-    exit 1
-  fi
-
-  extra="$(jq -r '.["ctrl-script"][]?.action // empty' "${PRIV}" | while read -r action; do
-    case "${action}" in
-      start|stop|status) ;;
-      *) echo "${action}" ;;
-    esac
-  done)"
-  if [ -n "${extra}" ]; then
-    echo "FAIL: unexpected ctrl-script action(s): ${extra}" >&2
-    exit 1
-  fi
-fi
-
-if ! jq -e '.["ctrl-script"][] | select(.action=="start" and ."run-as"=="root")' "${PRIV}" >/dev/null 2>&1; then
-  echo "FAIL: ctrl-script must declare start with run-as root (TUN interface creation)" >&2
+  echo "FAIL: privilege must not contain ctrl-script (DSM 7.3 rejected start-as-root elevation)" >&2
   exit 1
 fi
-
-for action in stop status; do
-  if ! jq -e --arg a "${action}" '.["ctrl-script"][] | select(.action==$a and ."run-as"=="root")' "${PRIV}" >/dev/null 2>&1; then
-    echo "FAIL: ctrl-script must declare ${action} with run-as root (root-owned service process)" >&2
-    exit 1
-  fi
-done
 
 echo "EasyTier privilege schema checks passed"
