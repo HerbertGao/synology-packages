@@ -25,7 +25,7 @@ EasyTier 创建虚拟网卡并参与二层/三层组网，通常需要访问 **T
 3. **启动前 TUN 准备（`service_prestart`，以套件用户执行）**
    - 先 `modprobe tun`（失败可忽略），再用 **`/sys/class/misc/tun`**、**`/sys/module/tun`** 或 **`/proc/modules`** 确认驱动存在。
    - 若 **`/dev/net/tun` 已存在** 且驱动就绪：**不**修改已有节点的权限；仅校验当前套件用户对该字符设备 **可读且可写**，不满足则失败并提示。
-   - 仅当驱动存在且设备仍缺失时才 `mknod`；新建节点使用 **`root:root` + mode `0666`**（与部分 DSM 7.3 主机上系统创建的 `0666` 节点一致），**不**在 fallback 中设为 `0600`（非 root 的 `prestart` 亦无法 `chmod` 已有 root 节点）。
+   - 仅当驱动存在且设备仍缺失时才 `mknod`（套件用户无法 `chown root`）；新建节点至少 **`chmod 0666`**，**不**在 fallback 中设为 `0600`。系统自带 `/dev/net/tun` 常为 **root:root 0666**。
    - 仅有 mknod 而无驱动证据时启动失败。
 
 4. **实际运行身份**

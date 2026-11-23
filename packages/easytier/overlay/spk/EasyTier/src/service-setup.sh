@@ -189,7 +189,6 @@ easytier_ensure_tun ()
     if [ ! -c "${EASYTIER_TUN_DEV}" ]; then
       if command -v mknod >/dev/null 2>&1; then
         mknod "${EASYTIER_TUN_DEV}" c 10 200
-        chown root:root "${EASYTIER_TUN_DEV}"
         chmod 666 "${EASYTIER_TUN_DEV}"
       fi
     fi
