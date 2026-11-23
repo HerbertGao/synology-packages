@@ -1,18 +1,7 @@
 {
-    "_comment": "EasyTier needs a TUN device and network stack hooks; start/stop run as root via DSM privilege ctrl-script (no third-party elevation tools). Package-owned files under @appdata use the dedicated account.",
     "defaults": {
         "run-as": "package"
     },
     "username": "EasyTier",
-    "ctrl-script": [
-        { "action": "preinst", "run-as": "root" },
-        { "action": "postinst", "run-as": "root" },
-        { "action": "preuninst", "run-as": "root" },
-        { "action": "postuninst", "run-as": "root" },
-        { "action": "preupgrade", "run-as": "root" },
-        { "action": "postupgrade", "run-as": "root" },
-        { "action": "start", "run-as": "root" },
-        { "action": "stop", "run-as": "root" },
-        { "action": "status", "run-as": "root" }
-    ]
+    "groupname": "EasyTier"
 }
