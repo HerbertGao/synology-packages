@@ -1,0 +1,8 @@
+# EasyTier — minimal fresh-install template (overlay package).
+# Upgrades never overwrite an existing @appdata/EasyTier/config.toml.
+# Full option reference: https://easytier.cn/en/ and upstream project docs.
+
+# Configure listeners, peers, and credentials before starting the service.
+# Example keys (uncomment and edit locally; do not commit secrets to the repo):
+# hostname = "my-node"
+# instance_id = "my-node-id"
