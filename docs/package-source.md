@@ -30,3 +30,36 @@ https://herbertgao.com/synology-packages/packages.json
 - **不要**为每个 Release tag 单独维护一份 `packages.json` 并让 Location 指向 tag URL（用户每次升级都要改来源）。
 - **不要**把 SPK 放到 Pages 站点下当作 `link`（体积极大且不适合用 Pages 分发；使用 Release 资产）。
 - 本目录 JSON 形状与常见第三方源一致：顶层 `{"packages":[...]}`，字段含义与 DSM 第三方来源约定相同。
+
+---
+
+# OpenList 上游来源与版本钉扎
+
+## 真相来源
+
+- 版本与 digest：`packages/openlist/upstream.lock.json`
+- 构建 overlay：`packages/openlist/overlay/**`
+- spksrc 基线 commit 与说明：同上 lock 文件中的 `spksrc` 段
+
+## 上游监控（GitHub Actions）
+
+工作流：`.github/workflows/upstream-monitor.yml`（每日 UTC 02:23 + `workflow_dispatch`）。
+
+它仅做以下事情：
+
+1. 用 GitHub API 对比 lock 中的钉扎与 [OpenListTeam/OpenList](https://github.com/OpenListTeam/OpenList)、[OpenListTeam/OpenList-Frontend](https://github.com/OpenListTeam/OpenList-Frontend) 的最新 release/tag。
+2. 可选地报告 [SynoCommunity/spksrc](https://github.com/SynoCommunity/spksrc) 默认分支相对 pinned commit 的前移，以及 `cross/openlist/Makefile` 上的 `PKG_VERS`（信息性；**不**等于必须同步提升本仓库的 OpenList 版本）。
+3. 打开、更新或关闭唯一跟踪 Issue，标题固定为 `chore: upstream updates available`。
+
+**不会**自动开升级 PR、合并、发 Release/tag、改 `docs/packages.json` / GitHub Pages，也不会在 NAS 上安装套件。
+
+升级流程仍为：维护者审阅后开 **草稿 PR**，更新 lock、`digests`，运行 `./scripts/verify-upstream-digests.sh` 与 `./scripts/ci-run-checks.sh`（及可选 `./scripts/build-openlist.sh`），经明确授权后再发布 Release 与目录更新。
+
+本地校验（无网络）：
+
+```bash
+node --test scripts/check-upstreams.test.mjs
+node scripts/check-upstreams.mjs --validate
+```
+
+Manifest：`packages/openlist/upstreams.json`（watch 列表；pin 仍以 `upstream.lock.json` 为准）。

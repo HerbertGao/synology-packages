@@ -1,0 +1,30 @@
+{
+  "$schema": "./upstreams.schema.json",
+  "lock": "packages/openlist/upstream.lock.json",
+  "issueTitle": "chore: upstream updates available",
+  "watches": [
+    {
+      "id": "openlist",
+      "name": "OpenList",
+      "repository": "https://github.com/OpenListTeam/OpenList",
+      "watch": "github_release",
+      "lockVersionField": "openlist_version",
+      "artifactKey": "openlist_source"
+    },
+    {
+      "id": "openlist_frontend",
+      "name": "OpenList Frontend",
+      "repository": "https://github.com/OpenListTeam/OpenList-Frontend",
+      "watch": "github_release",
+      "artifactKey": "openlist_frontend"
+    },
+    {
+      "id": "spksrc",
+      "name": "SynoCommunity spksrc",
+      "repository": "https://github.com/SynoCommunity/spksrc",
+      "watch": "spksrc_baseline",
+      "makefilePath": "cross/openlist/Makefile",
+      "lockSpksrcField": "spksrc"
+    }
+  ]
+}

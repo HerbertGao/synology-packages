@@ -12,6 +12,10 @@ chmod +x "${ROOT}"/scripts/*.sh
 "${ROOT}/scripts/test-upgrade-preservation.sh"
 "${ROOT}/scripts/test-port-sync.sh"
 "${ROOT}/scripts/test-migrate-failure-sim.sh"
+if command -v node >/dev/null 2>&1; then
+  node --test "${ROOT}/scripts/check-upstreams.test.mjs"
+  node "${ROOT}/scripts/check-upstreams.mjs" --validate
+fi
 if command -v shellcheck >/dev/null 2>&1; then
   shellcheck -S error "${ROOT}"/scripts/*.sh
   shellcheck -S error "${ROOT}"/packages/openlist/overlay/spk/openlist/src/openlist-dsm-port-sync.sh

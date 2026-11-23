@@ -1,0 +1,46 @@
+name: upstream-monitor
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-monitor
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Issue sync only. Upgrade PRs, Releases, Pages, and NAS installs require
+    # explicit maintainer authorization outside this workflow. Do not dispatch
+    # cloud agents or other workflows from this job.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.3.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v4.2.0
+        with:
+          node-version: "22"
+
+      - name: Validate upstream monitor manifest
+        run: node scripts/check-upstreams.mjs --validate
+
+      - name: Run upstream monitor unit tests
+        run: node --test scripts/check-upstreams.test.mjs
+
+      - name: Compare pins and sync tracking issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          node scripts/check-upstreams.mjs --sync-issue |
+            tee -a "$GITHUB_STEP_SUMMARY"
