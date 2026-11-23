@@ -11,9 +11,11 @@ EasyTier 创建虚拟网卡并参与二层/三层组网，通常需要访问 **T
    - 通过 `ctrl-script` 将 **start / stop / status** 以及安装生命周期钩子声明为 **`run-as: root`**，由 DSM 权限模型在套件脚本执行时提权，而非外部 helper。
 
 2. **启动前 TUN 准备（`service_prestart`）**
-   - 先 `modprobe tun` 加载内核模块，仅在设备仍不存在时再 `mknod`；不以单独的 `mknod` 成功视为驱动已就绪。
+   - 先 `modprobe tun`（失败可忽略：可能已加载或 built-in），再用 **`/sys/class/misc/tun`**、**`/sys/module/tun`** 或 **`/proc/modules`** 确认驱动存在。
+   - 仅当驱动存在且设备仍缺失时才 `mknod`；**仅有 mknod 而无驱动证据时启动失败**。
+   - 启动前已存在且可沿用的 `/dev/net/tun`（例如 built-in、modprobe 返回非零）仍视为就绪。
    - 设备节点权限为 `root:root` `0600`（服务经 privilege 以 root 启动并打开 TUN）。
-   - 若 TUN 仍不可用，`service_prestart` **失败并中止启动**（不 `|| true` 吞掉错误）。
+   - 就绪检查失败时 `service_prestart` **中止启动**（不 `|| true`）。
 
 3. **与第三方的差异（刻意）**
    - 不复制 `.sig`、哈希钉扎的启动脚本或外部 SPM 依赖。

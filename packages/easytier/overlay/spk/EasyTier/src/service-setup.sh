@@ -89,26 +89,63 @@ easytier_require_configured ()
     return 1
 }
 
+# Tun device path (overridable in offline tests only).
+EASYTIER_TUN_DEV="${EASYTIER_TUN_DEV:-/dev/net/tun}"
+EASYTIER_TUN_DEV_DIR="$(dirname "${EASYTIER_TUN_DEV}")"
+
+# Evidence that the tun driver is present (module or built-in), not merely a char node.
+easytier_tun_driver_present ()
+{
+    if [ -e /sys/class/misc/tun ]; then
+        return 0
+    fi
+    if [ -d /sys/module/tun ]; then
+        return 0
+    fi
+    if grep -q '^tun ' /proc/modules 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
 easytier_ensure_tun ()
 {
-    if [ ! -d /dev/net ]; then
-        mkdir -p /dev/net
-    fi
-    if [ -x /sbin/modprobe ]; then
-        /sbin/modprobe tun
-    fi
-    if [ ! -c /dev/net/tun ]; then
-        if command -v mknod >/dev/null 2>&1; then
-            mknod /dev/net/tun c 10 200
-            chown root:root /dev/net/tun
-            chmod 600 /dev/net/tun
-        fi
-    fi
-    if [ ! -c /dev/net/tun ]; then
-        echo "Error: /dev/net/tun is unavailable after loading the tun module."
-        return 1
-    fi
+  had_tun_dev=0
+  if [ -c "${EASYTIER_TUN_DEV}" ]; then
+    had_tun_dev=1
+  fi
+
+  if [ ! -d "${EASYTIER_TUN_DEV_DIR}" ]; then
+    mkdir -p "${EASYTIER_TUN_DEV_DIR}"
+  fi
+
+  if [ "${had_tun_dev}" -eq 1 ] && easytier_tun_driver_present; then
     return 0
+  fi
+
+  if [ -x /sbin/modprobe ]; then
+    /sbin/modprobe tun 2>/dev/null || true
+  fi
+
+  if easytier_tun_driver_present; then
+    if [ ! -c "${EASYTIER_TUN_DEV}" ]; then
+      if command -v mknod >/dev/null 2>&1; then
+        mknod "${EASYTIER_TUN_DEV}" c 10 200
+        chown root:root "${EASYTIER_TUN_DEV}"
+        chmod 600 "${EASYTIER_TUN_DEV}"
+      fi
+    fi
+    if [ -c "${EASYTIER_TUN_DEV}" ]; then
+      return 0
+    fi
+  fi
+
+  if [ "${had_tun_dev}" -eq 1 ]; then
+    return 0
+  fi
+
+  echo "Error: tun driver is not available; a standalone mknod is not sufficient."
+  return 1
 }
 
 service_prestart ()
