@@ -17,6 +17,7 @@ export PATH="${CARGO_HOME}/bin:${PATH}"
 if [ ! -f "${SPKSRC_DIR}/local.mk" ]; then
   make -C "${SPKSRC_DIR}" setup
 fi
+"${ROOT}/scripts/patch-spksrc-local-publisher.sh" "${SPKSRC_DIR}/local.mk"
 
 echo "Building EasyTier for ${ARCH} DSM ${TCVERSION} (not validated on real hardware in CI)"
 TARGET="spk-EasyTier-${ARCH}-${TCVERSION}"
