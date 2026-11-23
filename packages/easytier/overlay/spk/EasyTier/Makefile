@@ -28,7 +28,7 @@ include ../../mk/spksrc.spk.mk
 
 .PHONY: easytier_extra_install
 easytier_extra_install:
-	@$(MSG) Install default config template (fresh install) and license text
+	@$(MSG) Install default config template for fresh install and license text
 	@install -m 755 -d $(STAGING_DIR)/var
 	@install -m 644 src/config.toml $(STAGING_DIR)/var/config.toml
 	@install -m 755 -d $(STAGING_DIR)/share
