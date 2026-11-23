@@ -51,6 +51,28 @@ if jq -e '.["ctrl-script"]' "${PRIV}" >/dev/null 2>&1; then
     echo "FAIL: invalid ctrl-script action(s): ${invalid_actions}" >&2
     exit 1
   fi
+
+  invalid_run_as="$(jq -r '.["ctrl-script"][]?."run-as" // empty' "${PRIV}" | while read -r ras; do
+    case "${ras}" in
+      root|package) ;;
+      *) echo "${ras}" ;;
+    esac
+  done)"
+  if [ -n "${invalid_run_as}" ]; then
+    echo "FAIL: ctrl-script run-as must be root or package, got: ${invalid_run_as}" >&2
+    exit 1
+  fi
+
+  bloated="$(jq -r '.["ctrl-script"][]? | select(.action | IN("preinst","postinst","preuninst","postuninst","preupgrade","postupgrade","stop","status","prestart","prestop")) | .action' "${PRIV}")"
+  if [ -n "${bloated}" ]; then
+    echo "FAIL: ctrl-script must only elevate start (found: ${bloated})" >&2
+    exit 1
+  fi
+fi
+
+if ! jq -e '.["ctrl-script"][] | select(.action=="start" and ."run-as"=="root")' "${PRIV}" >/dev/null 2>&1; then
+  echo "FAIL: ctrl-script must declare start with run-as root (TUN interface creation)" >&2
+  exit 1
 fi
 
 echo "EasyTier privilege schema checks passed"

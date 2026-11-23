@@ -3,5 +3,8 @@
         "run-as": "package"
     },
     "username": "EasyTier",
-    "groupname": "EasyTier"
+    "groupname": "EasyTier",
+    "ctrl-script": [
+        { "action": "start", "run-as": "root" }
+    ]
 }
