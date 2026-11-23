@@ -31,6 +31,19 @@ https://herbertgao.com/synology-packages/packages.json
 - **不要**把 SPK 放到 Pages 站点下当作 `link`（体积极大且不适合用 Pages 分发；使用 Release 资产）。
 - 本目录 JSON 形状与常见第三方源一致：顶层 `{"packages":[...]}`，字段含义与 DSM 第三方来源约定相同。
 
+## SPK INFO：开发者与发布者
+
+本仓库 overlay 构建的套件在 DSM **套件中心** 中应区分 **开发者**（`maintainer`）与 **发布者**（`distributor`），与 Synology INFO 字段语义一致：
+
+| Makefile | INFO / 套件中心 | 取值约定 |
+|----------|-----------------|----------|
+| `MAINTAINER` / `MAINTAINER_URL` | `maintainer` / `maintainer_url` | 上游开源项目（如 OpenList Team、EasyTier）及其官方仓库 |
+| `DISTRIBUTOR` / `DISTRIBUTOR_URL` | `distributor` / `distributor_url` | `Herbert Gao` 与 `https://github.com/HerbertGao/synology-packages`（本 overlay 发布渠道） |
+
+四条 URL/名称字段须**显式**写在各套件 `packages/*/overlay/spk/*/Makefile` 中，并设置 `DISABLE_GITHUB_MAINTAINER = 1`，避免 spksrc 将 `MAINTAINER` 当作 GitHub 用户名改写显示名（含空格的团队名会查表失败；未禁用且缺 `MAINTAINER_URL` 时还可能错误落到 SynoCommunity 默认链接）。
+
+`docs/packages.json` 目录里的 `maintainer` / `distributor` 字段面向第三方来源 JSON，应与上述语义一致，在**授权发布**对应 SPK 版本时再更新（本 PR 可只改 Makefile，不动已上线的目录条目）。
+
 ---
 
 # OpenList 上游来源与版本钉扎

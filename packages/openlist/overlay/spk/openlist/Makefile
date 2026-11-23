@@ -1,14 +1,18 @@
 SPK_NAME = openlist
 SPK_VERS = 4.2.10
-SPK_REV = 2
+SPK_REV = 3
 SPK_ICON = src/openlist.png
 
 DEPENDS = cross/openlist
 
-MAINTAINER = HerbertGao
+MAINTAINER = OpenList Team
+MAINTAINER_URL = https://github.com/OpenListTeam/OpenList
+DISTRIBUTOR = Herbert Gao
+DISTRIBUTOR_URL = https://github.com/HerbertGao/synology-packages
+DISABLE_GITHUB_MAINTAINER = 1
 DESCRIPTION = A file list program that supports multiple storages, powered by Gin and SolidJS. Private overlay build (not SynoCommunity official).
 DISPLAY_NAME = OpenList
-CHANGELOG = "1. Pin DSM integration to upstream port 5244; preserve upgrade config without custom-port metadata sync."
+CHANGELOG = "3. Package Center shows OpenList Team as developer and Herbert Gao as publisher. 1. Pin DSM integration to upstream port 5244; preserve upgrade config without custom-port metadata sync."
 
 HOMEPAGE = https://docs.oplist.org/
 LICENSE = AGPL-3.0
