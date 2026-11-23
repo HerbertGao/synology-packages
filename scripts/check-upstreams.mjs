@@ -200,11 +200,11 @@ export function trackingReportFingerprint(report) {
 
 /**
  * @param {string[]} releaseUpdates
- * @param {string[]} errors
+ * @param {string[]} requiredErrors
  */
-export function issueSyncAction(releaseUpdates, errors) {
+export function issueSyncAction(releaseUpdates, requiredErrors) {
   if (releaseUpdates.length > 0) return "open";
-  if (errors.length > 0) return "unchanged";
+  if (requiredErrors.length > 0) return "unchanged";
   return "close";
 }
 
@@ -486,15 +486,30 @@ export function shouldSyncTrackingIssue(requested, ref, defaultBranch) {
 }
 
 /**
- * Exit status after a monitor run. Issue sync on the default branch must not be
- * gated on unrelated fetch errors once compare+sync has finished.
+ * Exit status after a monitor run.
+ *
+ * Report-only: any required or optional monitor error fails the step.
+ * After default-branch sync: succeed when release lag was detected (Issue
+ * opened/updated); fail when required release watches could not be compared and
+ * no lag was recorded; optional spksrc/Makefile errors alone do not fail.
  *
  * @param {boolean} didSyncIssue
- * @param {string[]} monitorErrors
+ * @param {string[]} releaseUpdates
+ * @param {string[]} requiredMonitorErrors
+ * @param {string[]} optionalMonitorErrors
  */
-export function monitorProcessExitCode(didSyncIssue, monitorErrors) {
-  if (didSyncIssue) return 0;
-  return monitorErrors.length > 0 ? 1 : 0;
+export function monitorProcessExitCode(
+  didSyncIssue,
+  releaseUpdates,
+  requiredMonitorErrors,
+  optionalMonitorErrors = [],
+) {
+  if (!didSyncIssue) {
+    return requiredMonitorErrors.length + optionalMonitorErrors.length > 0 ? 1 : 0;
+  }
+  if (releaseUpdates.length > 0) return 0;
+  if (requiredMonitorErrors.length > 0) return 1;
+  return 0;
 }
 
 async function main() {
@@ -533,7 +548,8 @@ async function main() {
   const releaseUpdates = [];
   const spksrcUpdates = [];
   const upstreamRows = [];
-  const monitorErrors = [...errors];
+  const requiredMonitorErrors = [...errors];
+  const optionalMonitorErrors = [];
 
   await Promise.all(
     parsed.entries.map(async (entry) => {
@@ -550,7 +566,7 @@ async function main() {
           });
           const cmp = compareSemver(localVersion, upstreamVersion);
           if (cmp === undefined) {
-            monitorErrors.push(
+            requiredMonitorErrors.push(
               `${entry.name}: cannot compare \`${localVersion}\` vs \`${upstreamVersion}\``,
             );
           } else if (cmp < 0) {
@@ -559,7 +575,7 @@ async function main() {
             );
           }
         } catch (error) {
-          monitorErrors.push(
+          requiredMonitorErrors.push(
             `${entry.name}: ${error instanceof Error ? error.message : String(error)}`,
           );
           upstreamRows.push({
@@ -585,7 +601,7 @@ async function main() {
             );
             recipeVersion = parseSpksrcPkgVers(makefile);
           } catch (error) {
-            monitorErrors.push(
+            optionalMonitorErrors.push(
               `spksrc Makefile: ${error instanceof Error ? error.message : String(error)}`,
             );
           }
@@ -605,7 +621,7 @@ async function main() {
             );
           }
         } catch (error) {
-          monitorErrors.push(
+          optionalMonitorErrors.push(
             `spksrc: ${error instanceof Error ? error.message : String(error)}`,
           );
         }
@@ -615,7 +631,9 @@ async function main() {
 
   releaseUpdates.sort((a, b) => a.localeCompare(b));
   spksrcUpdates.sort((a, b) => a.localeCompare(b));
-  monitorErrors.sort((a, b) => a.localeCompare(b));
+  requiredMonitorErrors.sort((a, b) => a.localeCompare(b));
+  optionalMonitorErrors.sort((a, b) => a.localeCompare(b));
+  const monitorErrors = [...requiredMonitorErrors, ...optionalMonitorErrors];
   const sortedRows = sortUpstreamRows(upstreamRows, manifest.watches);
 
   const report = markdownReport({
@@ -628,12 +646,25 @@ async function main() {
   process.stdout.write(report);
 
   if (compareOnly) {
-    process.exitCode = monitorProcessExitCode(false, monitorErrors);
+    process.exitCode = monitorProcessExitCode(
+      false,
+      releaseUpdates,
+      requiredMonitorErrors,
+      optionalMonitorErrors,
+    );
     return;
   }
 
-  await syncIssue(report, issueSyncAction(releaseUpdates, monitorErrors));
-  process.exitCode = monitorProcessExitCode(true, monitorErrors);
+  await syncIssue(
+    report,
+    issueSyncAction(releaseUpdates, requiredMonitorErrors),
+  );
+  process.exitCode = monitorProcessExitCode(
+    true,
+    releaseUpdates,
+    requiredMonitorErrors,
+    optionalMonitorErrors,
+  );
 }
 
 if (

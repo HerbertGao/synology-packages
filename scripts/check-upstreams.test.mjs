@@ -52,18 +52,53 @@ test("--validate passes for the current lock and manifest", () => {
 });
 
 test("monitorProcessExitCode does not fail after default-branch sync", () => {
-  assert.equal(monitorProcessExitCode(true, ["spksrc: 403"]), 0);
-  assert.equal(monitorProcessExitCode(false, ["spksrc: 403"]), 1);
-  assert.equal(monitorProcessExitCode(false, []), 0);
+  assert.equal(monitorProcessExitCode(true, [], [], ["spksrc: 403"]), 0);
+  assert.equal(monitorProcessExitCode(false, [], [], ["spksrc: 403"]), 1);
+  assert.equal(monitorProcessExitCode(false, [], [], []), 0);
+});
+
+test("required release fetch failure after sync with no lag exits 1", () => {
+  assert.equal(
+    monitorProcessExitCode(
+      true,
+      [],
+      ["OpenList: 403 Forbidden"],
+      [],
+    ),
+    1,
+  );
+  assert.equal(issueSyncAction([], ["OpenList: 403 Forbidden"]), "unchanged");
+});
+
+test("release lag after sync exits 0 despite mixed watch errors", () => {
+  const releaseUpdates = [
+    "`OpenList`: GitHub latest is `4.2.11` (pinned `4.2.10`).",
+  ];
+  assert.equal(
+    monitorProcessExitCode(
+      true,
+      releaseUpdates,
+      ["OpenList Frontend: 503"],
+      ["spksrc: 403 Forbidden"],
+    ),
+    0,
+  );
 });
 
 test("release lag still opens the issue when other fetches errored", () => {
   const releaseUpdates = [
     "`OpenList`: GitHub latest is `4.2.11` (pinned `4.2.10`).",
   ];
-  const monitorErrors = ["spksrc: 403 Forbidden"];
-  assert.equal(issueSyncAction(releaseUpdates, monitorErrors), "open");
-  assert.equal(monitorProcessExitCode(true, monitorErrors), 0);
+  const optionalErrors = ["spksrc: 403 Forbidden"];
+  assert.equal(issueSyncAction(releaseUpdates, []), "open");
+  assert.equal(
+    monitorProcessExitCode(true, releaseUpdates, [], optionalErrors),
+    0,
+  );
+});
+
+test("issueSyncAction closes when release watches succeeded and no lag", () => {
+  assert.equal(issueSyncAction([], []), "close");
 });
 
 test("shouldSyncTrackingIssue only on the default branch", () => {
