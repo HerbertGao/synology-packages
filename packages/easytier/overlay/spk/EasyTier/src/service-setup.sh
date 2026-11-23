@@ -3,7 +3,6 @@
 # shellcheck disable=SC2034,SC2154
 
 EASYTIER_CORE="${SYNOPKG_PKGDEST}/bin/easytier-core"
-EASYTIER_CORE_CAPS="cap_net_admin,cap_net_raw+ep"
 CONFIG_FILE="${SYNOPKG_PKGVAR}/config.toml"
 CONFIG_TEMPLATE="${SYNOPKG_PKGDEST}/var/config.toml"
 
@@ -51,21 +50,6 @@ validate_preupgrade ()
     fi
 }
 
-easytier_locate_setcap ()
-{
-    if command -v setcap >/dev/null 2>&1; then
-        command -v setcap
-        return 0
-    fi
-    for candidate in /sbin/setcap /usr/sbin/setcap /bin/setcap; do
-        if [ -x "${candidate}" ]; then
-            echo "${candidate}"
-            return 0
-        fi
-    done
-    return 1
-}
-
 easytier_locate_getcap ()
 {
     if command -v getcap >/dev/null 2>&1; then
@@ -81,41 +65,35 @@ easytier_locate_getcap ()
     return 1
 }
 
-easytier_apply_core_capabilities ()
+# DSM applies file capabilities from conf/privilege tool at install time (not via postinst setcap).
+easytier_warn_if_core_capabilities_missing ()
 {
     if [ ! -f "${EASYTIER_CORE}" ]; then
-        echo "Error: easytier-core not found at ${EASYTIER_CORE}; cannot apply file capabilities."
-        exit 1
-    fi
-
-    setcap_bin="$(easytier_locate_setcap)" || {
-        echo "Error: setcap not found; cannot grant TUN capabilities to easytier-core."
-        exit 1
-    }
-
-    if ! "${setcap_bin}" "${EASYTIER_CORE_CAPS}" "${EASYTIER_CORE}"; then
-        echo "Error: setcap failed for ${EASYTIER_CORE} (${EASYTIER_CORE_CAPS})."
-        exit 1
+        echo "Warning: easytier-core not found at ${EASYTIER_CORE}; privilege tool capabilities may not apply until the binary is present."
+        return 0
     fi
 
     getcap_bin="$(easytier_locate_getcap)" || {
-        echo "Error: getcap not found; cannot verify capabilities on easytier-core."
-        exit 1
+        echo "Warning: getcap not available; cannot verify file capabilities on easytier-core (declared in privilege tool)."
+        return 0
     }
 
-    if ! "${getcap_bin}" "${EASYTIER_CORE}" | grep -q 'cap_net_admin'; then
-        echo "Error: getcap verification failed; cap_net_admin not present on ${EASYTIER_CORE}."
-        exit 1
+    cap_out="$("${getcap_bin}" "${EASYTIER_CORE}" 2>/dev/null)" || cap_out=""
+    if [ -z "${cap_out}" ]; then
+        echo "Warning: no file capabilities reported on easytier-core; TUN may fail until DSM applies privilege tool caps (some sideloaded packages may require manual setcap after upgrade)."
+        return 0
     fi
-    if ! "${getcap_bin}" "${EASYTIER_CORE}" | grep -q 'cap_net_raw'; then
-        echo "Error: getcap verification failed; cap_net_raw not present on ${EASYTIER_CORE}."
-        exit 1
+    if ! echo "${cap_out}" | grep -q 'cap_net_admin'; then
+        echo "Warning: cap_net_admin not present on easytier-core per getcap; TUN creation may fail (check privilege tool or apply caps manually)."
+    fi
+    if ! echo "${cap_out}" | grep -q 'cap_net_raw'; then
+        echo "Warning: cap_net_raw not present on easytier-core per getcap; TUN creation may fail (check privilege tool or apply caps manually)."
     fi
 }
 
 service_postinst ()
 {
-    easytier_apply_core_capabilities
+    easytier_warn_if_core_capabilities_missing
     if [ "${SYNOPKG_PKG_STATUS}" = "INSTALL" ]; then
         if [ ! -f "${CONFIG_FILE}" ] && [ -f "${CONFIG_TEMPLATE}" ]; then
             $CP "${CONFIG_TEMPLATE}" "${CONFIG_FILE}"
@@ -125,7 +103,7 @@ service_postinst ()
 
 service_postupgrade ()
 {
-    easytier_apply_core_capabilities
+    easytier_warn_if_core_capabilities_missing
     if [ ! -f "${CONFIG_FILE}" ]; then
         echo "config.toml missing after upgrade restore; manual intervention required."
         exit 1
@@ -173,6 +151,17 @@ easytier_tun_driver_present ()
     return 1
 }
 
+easytier_tun_rw_by_package_user ()
+{
+  if [ ! -c "${EASYTIER_TUN_DEV}" ]; then
+    return 1
+  fi
+  if [ ! -r "${EASYTIER_TUN_DEV}" ] || [ ! -w "${EASYTIER_TUN_DEV}" ]; then
+    return 1
+  fi
+  return 0
+}
+
 easytier_ensure_tun ()
 {
   had_tun_dev=0
@@ -185,7 +174,11 @@ easytier_ensure_tun ()
   fi
 
   if [ "${had_tun_dev}" -eq 1 ] && easytier_tun_driver_present; then
-    return 0
+    if easytier_tun_rw_by_package_user; then
+      return 0
+    fi
+    echo "Error: ${EASYTIER_TUN_DEV} exists but is not readable/writable by the EasyTier package user; adjust device permissions (e.g. world-accessible mode) or use the system-provided node."
+    return 1
   fi
 
   if [ -x /sbin/modprobe ]; then
@@ -197,16 +190,24 @@ easytier_ensure_tun ()
       if command -v mknod >/dev/null 2>&1; then
         mknod "${EASYTIER_TUN_DEV}" c 10 200
         chown root:root "${EASYTIER_TUN_DEV}"
-        chmod 600 "${EASYTIER_TUN_DEV}"
+        chmod 666 "${EASYTIER_TUN_DEV}"
       fi
     fi
     if [ -c "${EASYTIER_TUN_DEV}" ]; then
-      return 0
+      if easytier_tun_rw_by_package_user; then
+        return 0
+      fi
+      echo "Error: ${EASYTIER_TUN_DEV} is not readable/writable by the EasyTier package user after creation."
+      return 1
     fi
   fi
 
   if [ "${had_tun_dev}" -eq 1 ]; then
-    return 0
+    if easytier_tun_rw_by_package_user; then
+      return 0
+    fi
+    echo "Error: ${EASYTIER_TUN_DEV} exists but is not readable/writable by the EasyTier package user."
+    return 1
   fi
 
   echo "Error: tun driver is not available; a standalone mknod is not sufficient."

@@ -63,7 +63,11 @@ if easytier_host_can_mknod; then
     echo "FAIL: ensure_tun should create the tun char device when driver is present" >&2
     exit 1
   fi
-  chmod 600 "${EASYTIER_TUN_DEV}" 2>/dev/null || true
+  tun_mode="$(stat -c '%a' "${EASYTIER_TUN_DEV}" 2>/dev/null || echo "")"
+  if [ "${tun_mode}" != "666" ]; then
+    echo "FAIL: mknod fallback should create tun with mode 0666, got ${tun_mode}" >&2
+    exit 1
+  fi
 
   rm -f "${EASYTIER_TUN_DEV}"
   mknod "${EASYTIER_TUN_DEV}" c 10 200
@@ -71,8 +75,14 @@ if easytier_host_can_mknod; then
 
   easytier_tun_driver_present() { return 1; }
 
+  if easytier_ensure_tun; then
+    echo "FAIL: root-only tun node (0600) should be rejected for package user" >&2
+    exit 1
+  fi
+
+  chmod 666 "${EASYTIER_TUN_DEV}" 2>/dev/null || true
   if ! easytier_ensure_tun; then
-    echo "FAIL: pre-existing tun node should be accepted when modprobe/driver probe fails" >&2
+    echo "FAIL: world-readable tun node should be accepted when modprobe/driver probe fails" >&2
     exit 1
   fi
 else

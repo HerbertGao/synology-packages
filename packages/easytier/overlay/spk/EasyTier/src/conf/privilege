@@ -3,5 +3,14 @@
         "run-as": "package"
     },
     "username": "EasyTier",
-    "groupname": "EasyTier"
+    "groupname": "EasyTier",
+    "tool": [
+        {
+            "relpath": "bin/easytier-core",
+            "user": "package",
+            "group": "package",
+            "capabilities": "cap_net_admin,cap_net_raw",
+            "permission": "0755"
+        }
+    ]
 }
