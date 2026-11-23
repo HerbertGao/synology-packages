@@ -1,0 +1,36 @@
+{
+  "easytier_version": "2.7.0",
+  "spksrc": {
+    "repository": "https://github.com/SynoCommunity/spksrc.git",
+    "commit": "f29cd8b7e080e87fda0461c9eed486428e23426d",
+    "note": "Same pinned baseline as packages/openlist; overlay adds cross/spk recipes only."
+  },
+  "targets": [
+    {
+      "device": "DS918+",
+      "arch": "apollolake",
+      "abi": "x86_64",
+      "dsm": "7.3",
+      "make_args": "ARCH=apollolake TCVERSION=7.3"
+    }
+  ],
+  "artifacts": {
+    "easytier_linux_x86_64": {
+      "url": "https://github.com/EasyTier/EasyTier/releases/download/v2.7.0/easytier-linux-x86_64-v2.7.0.zip",
+      "dist_file": "easytier-linux-x86_64-v2.7.0.zip",
+      "sha256": "442238912065537c280869089217303e3d2813e9c5d2a6b14deaf25667065aa2",
+      "sha1": "5576a6d4d22001008ad0488e40c4c9edc87ba3a5",
+      "md5": "fee0e1f88c6f558d604bb9b22c61cfaa"
+    }
+  },
+  "binaries": {
+    "easytier-core": 6578728,
+    "easytier-cli": 2330132,
+    "easytier-web": 9673472,
+    "easytier-web-embed": 10763724
+  },
+  "license": {
+    "easytier": "LGPL-3.0",
+    "spksrc": "See SynoCommunity/spksrc repository license"
+  }
+}

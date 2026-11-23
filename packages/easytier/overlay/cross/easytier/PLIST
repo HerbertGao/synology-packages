@@ -1,0 +1,4 @@
+bin:bin/easytier-cli
+bin:bin/easytier-core
+bin:bin/easytier-web
+bin:bin/easytier-web-embed

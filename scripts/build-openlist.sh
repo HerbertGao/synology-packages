@@ -7,7 +7,7 @@ SPKSRC_DIR="${SPKSRC_DIR:-${ROOT}/.build/spksrc}"
 ARCH="${ARCH:-apollolake}"
 TCVERSION="${TCVERSION:-7.3}"
 
-"${ROOT}/scripts/apply-overlay.sh" "${SPKSRC_DIR}"
+"${ROOT}/scripts/apply-overlay.sh" openlist "${SPKSRC_DIR}"
 
 export CARGO_HOME="${SPKSRC_DIR}/distrib/cargo"
 export RUSTUP_HOME="${SPKSRC_DIR}/distrib/rustup"

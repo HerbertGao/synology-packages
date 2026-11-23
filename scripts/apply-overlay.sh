@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Apply packages/openlist/overlay onto a SynoCommunity/spksrc checkout.
+# Apply packages/<name>/overlay onto a SynoCommunity/spksrc checkout.
+# Usage: apply-overlay.sh [openlist|easytier] [SPKSRC_DIR]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-LOCK="${ROOT}/packages/openlist/upstream.lock.json"
-OVERLAY="${ROOT}/packages/openlist/overlay"
+PACKAGE="${1:-openlist}"
+shift || true
+LOCK="${ROOT}/packages/${PACKAGE}/upstream.lock.json"
+OVERLAY="${ROOT}/packages/${PACKAGE}/overlay"
 SPKSRC_DIR="${1:-${ROOT}/.build/spksrc}"
 
 if ! command -v git >/dev/null 2>&1; then

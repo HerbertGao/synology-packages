@@ -20,6 +20,13 @@
 - 版本：v4.2.10（预构建 dist  tarball）
 - 许可证：**MIT**
 
+## EasyTier
+
+- 项目：<https://github.com/EasyTier/EasyTier>
+- 版本：v2.7.0（`packages/easytier/upstream.lock.json`，官方 linux x86_64 Release zip）
+- 许可证：**LGPL-3.0**（官方 zip 未附带 LICENSE 文件；SPK 内 `share/LICENSE` 为上游仓库文本副本）
+- 官方文档：<https://easytier.cn/en/>
+
 ## 说明
 
-本仓库产出的 SPK 为**私人维护**构建，非 SynoCommunity 官方发布渠道。对外分发 AGPL 覆盖的软件时，须遵守相应源代码提供义务。
+本仓库产出的 SPK 为**私人维护**构建，非 SynoCommunity 官方发布渠道。对外分发 AGPL/LGPL 覆盖的软件时，须遵守相应源代码提供义务。
