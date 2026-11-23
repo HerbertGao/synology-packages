@@ -1,61 +1,100 @@
 # EasyTier：从零安装与配置恢复
 
-面向「卸载旧版 → 全新安装 → 恢复相同组网身份」的通用流程。**本仓库不在此环境执行 NAS 操作**；下列清单供管理员在 DS918+（`apollolake`、DSM 7.3.x）或同类 x86_64 主机上自行验证。
+面向「卸载旧版 → 全新安装 → 恢复相同组网身份」的**通用**清单。**本仓库不在此环境执行 NAS 操作**。
 
-## 为何可能需要从零安装
+## 何时考虑从零安装
 
-- 就地升级在 `prepare_install` 阶段若返回 **319**（`invalid package privilege content`），安装程序**不会**停服或解包；见 [privilege-and-tun.md](./privilege-and-tun.md) 中的 319 证据说明。
-- 卸载会清除套件私有数据目录（`@appdata/EasyTier`，即 `SYNOPKG_PKGVAR`）；**仅备份 `config.toml` 不足以保证 cap 与目录一并恢复**。
+- 就地升级到新版 SPK 在 `prepare_install` 失败（例如 **319**）时，**旧版若仍在运行，应优先保持旧版在线服务**，继续用已验证可工作的安装路径（含你已接受的运维补偿，例如经授权的 `setcap`），而不是假设「只能卸载整机停机」。
+- 若**必须**换 privilege 形态或重置 `/var/packages/EasyTier`，才进入卸载流程；且**只有**在回滚路径预检通过后才可卸载。
 
-## 安装前备份（离线、脱敏）
+## 关键事实（影响备份范围）
 
-在 NAS 或已从 NAS 拷出的副本上保留：
+| 事实 | 对备份的含义 |
+| --- | --- |
+| `getcap` 输出是**只读快照**，不能用来**还原** file capabilities | 新安装后 cap 须由 DSM `privilege` `tool` 重新施加，或经**管理员授权**再次 `setcap`；**不承诺**零手工 |
+| 复制 `easytier-core` 文件**不保证**携带扩展属性中的 cap（视文件系统/拷贝方式而定） | 须保留**当时可安装的 SPK** 或完整套件树，而非只抄二进制 |
+| 卸载常删除 `@appdata/EasyTier` | 配置与日志须**在卸载前**离线保存 |
+| `prepare_install` **319** 不会停服 | **无需**为 319 单独卸载；无回滚材料时**禁止**卸载 |
 
-| 项目 | 路径或命令 | 用途 |
+## A. 卸载前：完整材料（脱敏离线保存）
+
+在**另一台机器或加密离线目录**保留下列项（路径以 DSM 默认为例，勿写入本机 IP / 密钥正文）：
+
+### A1. 可回装的服务证据（**必需其一**）
+
+- **当前已验证可工作的 SPK 文件**（例如仍在线的 2.7.0-2 构建物），含校验和（`sha256sum`）；或
+- 从该 SPK 解出的 **`INFO` + `package.tgz` 内 `conf/privilege`**（`tar -xf … package.tgz conf/privilege`），用于确认 privilege 形态可再装。
+
+> 没有「可再次安装且已知能跑 mesh」的旧 SPK / 等价物 → **不得卸载**。
+
+### A2. 运行态目录快照（卸载会丢）
+
+| 类别 | 路径（示例） | 说明 |
 | --- | --- | --- |
-| 运行配置 | `/volume*/@appdata/EasyTier/config.toml` | 节点 hostname、`instance_id`、监听、peer、密钥等 |
-| 可选日志 | 同目录 `EasyTier.log` | 排错，非恢复必需 |
-| 套件元数据 | 套件中心显示版本；或 `synopkg version EasyTier` | 记录升级前版本 |
-| 文件能力快照 | `getcap /var/packages/EasyTier/target/bin/easytier-core` | 卸载后旧 cap 会丢失；用于对比新安装是否由 `privilege` `tool` 自动施加 |
-| 权限声明 | 待装 SPK 内 `conf/privilege`（或发行说明） | 对照 DSM 安装向导中的权限提示 |
+| 用户配置 | `…/EasyTier/config.toml` | **必需**；恢复后做 `sha256` 与备份一致 |
+| 可选日志 | 同目录 `EasyTier.log` | 排错用 |
+| 套件变量树 | `/var/packages/EasyTier` 下 `etc`、`scripts`、`conf`（若存在） | privilege 安装结果、启动脚本 |
+| 目标树元数据 | `/var/packages/EasyTier/target` 的 **`INFO`**（若存在） | 版本、维护者字段 |
+| 权限诊断 | `getcap …/target/bin/easytier-core` 文本输出 | **仅对比**，不能当恢复源 |
 
-**不要**将含密钥或内网地址的配置提交到公开仓库或 PR。
+### A3. 诊断记录（非恢复源，但排 319 / cap 用）
 
-## 从零安装步骤
+- `synopkg version EasyTier`、失败安装的 `synopkg` JSON（含 `last_stage`）
+- 拟装新版 SPK 内 `conf/privilege` 副本
 
-1. **停止**旧版 EasyTier（若仍可操作）。
-2. **完成上表备份**并确认备份可读。
-3. 在套件中心 **卸载** EasyTier（接受 `@appdata/EasyTier` 可能被删除）。
-4. **安装**新版 SPK（侧载或自建 catalog；接受第三方开发者提示）。
-5. 安装完成后查看套件日志 / `synopkg` 输出中的 **getcap 警告**（见 `service_postinst`）。
-6. **恢复配置**：将备份的 `config.toml` 写回 `@appdata/EasyTier/config.toml`（全新安装后目录由 DSM 重建）。
-7. **核对能力**（不把手工作为默认流程，仅作验收）：
+**禁止**将含密钥的 `config.toml` 提交公开仓库或 PR。
+
+## B. 卸载前预检（全部满足再卸载）
+
+1. **回滚 SPK** 可读，`sha256` 与记录一致，且管理员确认**可在本机侧载重装**（不要求此刻真装，但须有安装包与权限接受流程）。
+2. **`config.toml` 备份**可读，`sha256` 已记录（例如 `sha256sum config.toml > config.toml.sha256`）。
+3. **恢复演练（离线）**：在备份副本上执行 `sha256sum -c`；确认未误拷空文件。
+4. **新版 SPK**（若目标为零从新版本安装）已在沙箱读过 `conf/privilege`；**不假设** 319 会消失。
+5. 明确接受：新装后若 DSM **未**写入 file capabilities，管理员可能仍需**授权** `setcap`（与 2.7.0-2 运维现实一致）——**不是**安装脚本默认步骤。
+
+任一不满足 → **停止**；保持旧版运行，收集 `synopkg` / `/var/log/synopkg.log` 再决策。
+
+## C. 卸载与全新安装
+
+1. 停止 EasyTier（若可操作）。
+2. 再次确认 A/B 完成。
+3. 卸载（接受 `@appdata/EasyTier` 可能被删）。
+4. 安装目标 SPK（第三方提示、privilege 声明含 `tool` capabilities 时需在 UI 确认）。
+5. 阅读安装输出 / `service_postinst` 的 **getcap 警告**。
+
+## D. 恢复配置与属主（不写死 UID）
+
+1. 将备份 `config.toml` 写回 `${SYNOPKG_PKGVAR}/config.toml`（即 `@appdata/EasyTier/`）。
+2. **属主**：改为套件账户名 **EasyTier**（`privilege` 中的 `username`，非数字 UID 硬编码），例如：
    ```bash
-   getcap /var/packages/EasyTier/target/bin/easytier-core
+   chown EasyTier:EasyTier /path/to/@appdata/EasyTier/config.toml
    ```
-   期望包含 `cap_net_admin`、`cap_net_raw`（若为空，启动可能仍失败；见诚实性说明）。
-8. **启动**套件；确认 `easytier-core` 常驻、虚拟接口与 mesh 与升级前一致。
+   若本机用户名不同，以 `privilege` / `id EasyTier` 为准。
+3. **权限**：建议 `0640` 或更严（仅套件用户可读）；与备份前 `stat` 记录对比，避免 world-readable 泄露。
+4. **完整性**：`sha256sum -c` 与卸载前记录一致后再启动。
+5. **能力验收**：`getcap …/easytier-core`；缺失时按 B.5 处理，**不要**假设立即可启动。
 
-## 失败与回滚边界
+## E. 失败与回滚（非「永久离线」）
 
-| 现象 | 可能原因 | 建议 |
+| 情况 | 动作 |
+| --- | --- |
+| 新 SPK `prepare_install` **319** | **未卸载前**：继续用旧版；**已卸载且无回滚 SPK**：用 A1 旧 SPK 重装，恢复 D，再评估 cap |
+| 启动前 TUN / EACCES | 看 prestart 对 `/dev/net/tun` **类型 + rw** 的报错；修主机节点或 cap，脚本**不会** chmod 设备 |
+| cap 未应用 | DSM 侧排查或授权 `setcap`；getcap 快照不能代劳 |
+| 配置损坏 | 从离线备份重写；模板**不能**推断原 `instance_id` / 密钥 |
+
+## F. 就地升级 vs 全新安装（校验层）
+
+| 环节 | 就地升级 | 全新安装 |
 | --- | --- | --- |
-| `prepare_install` **319** | SPK 内 `conf/privilege` 未通过 DSM schema/策略校验 | 保留 SPK 与 `synopkg` JSON 结果；对照 [Privilege Config](https://help.synology.com/developer-guide/privilege/privilege_config.html)；**不能**假定卸载重装一定消除 319 |
-| 启动前提示未配置 | `config.toml` 仍为注释模板 | 写入有效键值后再启动；包**不会**自动生成 `instance_id` 或密钥 |
-| TUN / EPERM | `easytier-core` 无 file capabilities 或主机无 `/dev/net/tun` | 查 `getcap` 与 `/dev/net/tun`；启用 TUN 模块 |
-| 配置丢失 | 卸载前未备份或写回路径错误 | 从离线备份恢复；无法从包内模板推断原节点身份 |
+| 失败前是否可继续用旧服务 | 319 时通常**可以** | 仅当已完成 B 且卸载后 |
+| `service_save` / `restore` | 保留 `config.toml`、可选日志 | 人工 D |
+| postinst 模板 | 不覆盖已有配置 | 无配置时仅注释模板 |
 
-## 与就地升级的差异
+**证据提示**：[Breaking Changes](https://help.synology.com/developer-guide/breaking_changes.html) **原文**：`synopkg install` 与 UI 安装有相同约束——这是**合理推断**「CLI 与 GUI 可能走同一套安装门槛」的依据，**并非**官方写明 `prepare_install` 在 upgrade 与 install 上逐步骤相同；二者是否共享**全部**校验项**仍未在公开文档中定位**。
 
-| 环节 | 就地升级 | 从零安装 |
-| --- | --- | --- |
-| `prepare_install` / privilege 校验 | 有（对用户观测：2.7.0-3/4 曾 319） | **应有相同校验**（[Breaking Changes](https://help.synology.com/developer-guide/breaking_changes.html)：`synopkg install` 与 UI 约束一致）；**全新安装 2.7.0-4+ 尚未在本环境真机证实** |
-| `service_save` / `restore` | 保留 `config.toml`、可选日志 | 不适用；依赖人工恢复 |
-| `validate_preupgrade` | 无 `config.toml` 则中止 | 不适用 |
-| postinst 模板 | 不覆盖已有配置 | 无配置时仅复制**注释模板**并提示编辑 |
+## G. 验证分层
 
-## 验证分层（避免误判）
-
-- **CI / 本仓库脚本**：privilege JSON、钩子模拟、TUN 逻辑模拟 — **非 DSM**。
-- **`./scripts/build-easytier.sh`**：产出 SPK — **未在本回合真机安装**。
-- **NAS 套件中心 / `synopkg`**：唯一可确认 319、file capabilities 与 TUN 的层级 — **需管理员执行上述清单**。
+- **本仓库 `scripts/test-easytier-*.sh`**：离线 mock（含 TUN rw 探测）— 非 DSM。
+- **SPK 构建**：未在本环境标注真机已验收。
+- **NAS**：唯一可确认 319、cap 写入与 mesh 的层级。

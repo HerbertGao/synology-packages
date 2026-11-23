@@ -18,20 +18,6 @@ export CP=cp
 # shellcheck disable=SC1090,SC1091
 . "${SVC}"
 
-easytier_tun_driver_present() { return 1; }
-
-if easytier_ensure_tun 2>/dev/null; then
-  echo "FAIL: ensure_tun must fail when driver evidence and device are both absent" >&2
-  exit 1
-fi
-
-easytier_tun_driver_present() { return 0; }
-
-if easytier_ensure_tun 2>/dev/null; then
-  echo "FAIL: ensure_tun must fail when driver is present but char device is missing" >&2
-  exit 1
-fi
-
 easytier_host_can_mknod ()
 {
   _probe="${WORK}/mknod-probe"
@@ -48,24 +34,55 @@ easytier_host_can_mknod ()
   return 1
 }
 
+easytier_tun_driver_present() { return 1; }
+
+if easytier_ensure_tun 2>/dev/null; then
+  echo "FAIL: ensure_tun must fail when device and driver evidence are absent" >&2
+  exit 1
+fi
+
+easytier_tun_driver_present() { return 0; }
+
+if easytier_ensure_tun 2>/dev/null; then
+  echo "FAIL: ensure_tun must fail when driver is present but char device is missing" >&2
+  exit 1
+fi
+
 if ! easytier_host_can_mknod; then
-  echo "Note: host cannot mknod; skipped existing-device simulation"
-  echo "OK EasyTier TUN readiness rejects missing device without mknod/modprobe fallback"
+  echo "Note: host cannot mknod; skipped rw-probe simulations"
+  echo "OK EasyTier TUN readiness rejects missing device (no mknod/modprobe in prestart)"
   exit 0
 fi
 
+# --- Device exists but not readable/writable (EACCES) ---
 mknod "${EASYTIER_TUN_DEV}" c 10 200
-
-if ! easytier_ensure_tun; then
-  echo "FAIL: ensure_tun should accept existing tun node when driver evidence is present" >&2
+chmod 000 "${EASYTIER_TUN_DEV}"
+if easytier_ensure_tun 2>/dev/null; then
+  echo "FAIL: ensure_tun must reject inaccessible tun node (mode 000)" >&2
+  exit 1
+fi
+if easytier_tun_rw_by_package_user; then
+  echo "FAIL: rw probe must reject mode 000" >&2
   exit 1
 fi
 
-easytier_tun_driver_present() { return 1; }
-
+# --- Device accessible (diagnostic pass; does not imply TUN creation works) ---
+chmod 666 "${EASYTIER_TUN_DEV}"
+if ! easytier_tun_rw_by_package_user; then
+  echo "FAIL: rw probe must accept readable/writable char device" >&2
+  exit 1
+fi
 if ! easytier_ensure_tun; then
-  echo "FAIL: ensure_tun should accept existing tun node even when driver probe fails" >&2
+  echo "FAIL: ensure_tun must pass when node exists and is rw" >&2
   exit 1
 fi
 
-echo "OK EasyTier TUN readiness uses DSM device presence; no package-user mknod/modprobe"
+# --- Wrong node type ---
+rm -f "${EASYTIER_TUN_DEV}"
+printf 'not-a-char-dev' >"${EASYTIER_TUN_DEV}"
+if easytier_ensure_tun 2>/dev/null; then
+  echo "FAIL: ensure_tun must reject non-char path" >&2
+  exit 1
+fi
+
+echo "OK EasyTier TUN prestart: char device + rw probe only; no permission mutation"

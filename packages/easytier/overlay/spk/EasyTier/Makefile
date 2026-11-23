@@ -12,7 +12,7 @@ override DISTRIBUTOR_URL = https://github.com/HerbertGao/synology-packages
 override DISABLE_GITHUB_MAINTAINER = 1
 DESCRIPTION = EasyTier mesh VPN (official upstream linux x86_64 binaries). Private overlay build (not SynoCommunity official).
 DISPLAY_NAME = EasyTier
-CHANGELOG = "5. Simplify TUN prestart (no package-user mknod/modprobe); drop PID upgrade carry; document fresh-install restore and 319 evidence bounds. 4. privilege tool caps (no ctrl-script). 3. ctrl-script root (319 on one NAS observation). 2. Fix privilege schema (_comment). 1. Initial overlay."
+CHANGELOG = "5. TUN prestart rw diagnostic only; full fresh-install rollback checklist; 319 evidence tiers (unresolved). 4. privilege tool caps. 3. ctrl-script root. 2. Fix privilege schema. 1. Initial overlay."
 
 HOMEPAGE = https://github.com/EasyTier/EasyTier
 LICENSE = LGPL-3.0

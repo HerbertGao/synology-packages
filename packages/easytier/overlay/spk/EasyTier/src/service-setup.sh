@@ -149,29 +149,44 @@ easytier_tun_driver_present ()
     return 1
 }
 
-# Readiness for package-user prestart: rely on DSM-provided /dev/net/tun, not mknod/modprobe (require root).
+# Read-only: can the effective user (package account in prestart) open the tun char device?
+easytier_tun_rw_by_package_user ()
+{
+    if [ ! -c "${EASYTIER_TUN_DEV}" ]; then
+        return 1
+    fi
+    if [ ! -r "${EASYTIER_TUN_DEV}" ] || [ ! -w "${EASYTIER_TUN_DEV}" ]; then
+        return 1
+    fi
+    return 0
+}
+
+# Prestart diagnostic only: does not modprobe, mknod, or chmod (package user cannot do those reliably).
 easytier_ensure_tun ()
 {
     if [ ! -d "${EASYTIER_TUN_DEV_DIR}" ]; then
-        echo "Error: ${EASYTIER_TUN_DEV_DIR} is missing; enable the TUN driver on this NAS before starting EasyTier."
+        echo "Error: ${EASYTIER_TUN_DEV_DIR} is missing; fix the host TUN setup before starting EasyTier."
         return 1
     fi
 
-    if [ -c "${EASYTIER_TUN_DEV}" ]; then
-        if easytier_tun_driver_present; then
-            return 0
+    if [ ! -c "${EASYTIER_TUN_DEV}" ]; then
+        if ! easytier_tun_driver_present; then
+            echo "Error: ${EASYTIER_TUN_DEV} is missing and tun driver evidence is absent; enable TUN on the NAS, then retry."
+            return 1
         fi
-        echo "Warning: ${EASYTIER_TUN_DEV} exists but tun driver evidence is absent; continuing (caps on easytier-core may still work)."
-        return 0
+        echo "Error: tun driver appears present but ${EASYTIER_TUN_DEV} is missing; reboot or fix device nodes on the host (this package does not create the node as the package user)."
+        return 1
+    fi
+
+    if ! easytier_tun_rw_by_package_user; then
+        echo "Error: ${EASYTIER_TUN_DEV} is not readable/writable by the EasyTier package user (EACCES-style failure at start); fix host device ACL/mode or file capabilities on easytier-core—this script does not change device permissions."
+        return 1
     fi
 
     if ! easytier_tun_driver_present; then
-        echo "Error: tun driver is not available and ${EASYTIER_TUN_DEV} is missing; enable TUN on the NAS (kernel module or DSM setting), then retry."
-        return 1
+        echo "Warning: ${EASYTIER_TUN_DEV} is accessible but tun driver evidence is absent; start may still fail depending on caps and kernel state."
     fi
-
-    echo "Error: tun driver appears loaded but ${EASYTIER_TUN_DEV} is missing; reboot or fix device nodes on the host (this package does not create /dev/net/tun as the package user)."
-    return 1
+    return 0
 }
 
 service_prestart ()
