@@ -44,7 +44,7 @@ docker run -it --platform=linux/amd64 \
 
 ## 维护约定
 
-见 [AGENTS.md](AGENTS.md)。
+见 [AGENTS.md](AGENTS.md)。上游钉扎与定时 Issue 监控见 [docs/package-source.md](docs/package-source.md)。
 
 ## 许可证与归属
 
