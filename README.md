@@ -11,7 +11,7 @@ OpenList 套件对外端口与上游一致：**5244**（`SERVICE_PORT` / `ADMIN_
 在仓库启用 GitHub Pages（`master` / `docs`）后，套件中心第三方来源的 **Location** 使用固定目录 URL（不随 Release tag 变化）：
 
 ```text
-https://herbertgao.github.io/synology-packages/packages.json
+https://herbertgao.com/synology-packages/packages.json
 ```
 
 维护说明见 [docs/package-source.md](docs/package-source.md)；当前目录数据为 [docs/packages.json](docs/packages.json)。
