@@ -5,7 +5,7 @@
 ## 配置路径
 
 - 运行配置：`${SYNOPKG_PKGVAR}/config.toml`（即 `@appdata/EasyTier/config.toml`）
-- 文件日志与 PID：同目录下 `EasyTier.log`、`EasyTier.pid`
+- 文件日志：`EasyTier.log`（升级时可选保留；**不**备份 `EasyTier.pid`，避免陈旧 PID）
 
 ## 升级行为
 
@@ -22,6 +22,10 @@
 ## 权限与 TUN
 
 见 [privilege-and-tun.md](./privilege-and-tun.md)。
+
+## 从零安装（卸载后重装）
+
+若就地升级在 `prepare_install` 失败（如 319），或需完整重置套件目录与 file capabilities，见 [fresh-install-restore.md](./fresh-install-restore.md)。
 
 ## 未在仓库内验证项
 

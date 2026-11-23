@@ -1,6 +1,6 @@
 SPK_NAME = EasyTier
 SPK_VERS = 2.7.0
-SPK_REV = 4
+SPK_REV = 5
 SPK_ICON = src/EasyTier.png
 
 DEPENDS = cross/easytier
@@ -12,7 +12,7 @@ override DISTRIBUTOR_URL = https://github.com/HerbertGao/synology-packages
 override DISABLE_GITHUB_MAINTAINER = 1
 DESCRIPTION = EasyTier mesh VPN (official upstream linux x86_64 binaries). Private overlay build (not SynoCommunity official).
 DISPLAY_NAME = EasyTier
-CHANGELOG = "4. Package-user privilege (no ctrl-script); declare cap_net_admin,cap_net_raw on easytier-core via privilege tool (DSM 7.3 rejected 2.7.0-3 start-as-root at prepare_install 319). 3. ctrl-script start/stop/status as root (rejected on DSM 7.3). 2. Fix conf/privilege for DSM 7.3 prepare_install (drop invalid keys; explicit groupname). 1. Initial overlay: official v2.7.0 binaries, config.toml upgrade preservation; Package Center shows EasyTier as developer and Herbert Gao as publisher."
+CHANGELOG = "5. TUN prestart rw diagnostic only; full fresh-install rollback checklist; 319 evidence tiers (unresolved). 4. privilege tool caps. 3. ctrl-script root. 2. Fix privilege schema. 1. Initial overlay."
 
 HOMEPAGE = https://github.com/EasyTier/EasyTier
 LICENSE = LGPL-3.0
