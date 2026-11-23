@@ -11,8 +11,9 @@ EasyTier 创建虚拟网卡并参与二层/三层组网，通常需要访问 **T
    - 通过 `ctrl-script` 将 **start / stop / status** 以及安装生命周期钩子声明为 **`run-as: root`**，由 DSM 权限模型在套件脚本执行时提权，而非外部 helper。
 
 2. **启动前 TUN 准备（`service_prestart`）**
-   - 若不存在 `/dev/net/tun`，尝试 `mknod` 创建字符设备，并可选 `modprobe tun`。
-   - 若仍不可用，记录警告；不在此脚本中静默改用第三方 root 包装。
+   - 先 `modprobe tun` 加载内核模块，仅在设备仍不存在时再 `mknod`；不以单独的 `mknod` 成功视为驱动已就绪。
+   - 设备节点权限为 `root:root` `0600`（服务经 privilege 以 root 启动并打开 TUN）。
+   - 若 TUN 仍不可用，`service_prestart` **失败并中止启动**（不 `|| true` 吞掉错误）。
 
 3. **与第三方的差异（刻意）**
    - 不复制 `.sig`、哈希钉扎的启动脚本或外部 SPM 依赖。

@@ -6,6 +6,7 @@ chmod +x "${ROOT}"/scripts/*.sh
 "${ROOT}/scripts/verify-upstream-digests.sh"
 "${ROOT}/scripts/verify-easytier-digests.sh"
 "${ROOT}/scripts/test-easytier-upgrade-preservation.sh"
+"${ROOT}/scripts/test-easytier-start-guards.sh"
 "${ROOT}/scripts/check-port-consistency.sh"
 "${ROOT}/scripts/test-upgrade-preservation.sh"
 "${ROOT}/scripts/test-port-sync.sh"

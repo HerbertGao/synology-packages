@@ -67,23 +67,45 @@ service_postupgrade ()
     fi
 }
 
-easytier_ensure_tun ()
+# True when config.toml has at least one non-comment, non-empty line (user intent to run).
+easytier_config_ready ()
 {
-    if [ -c /dev/net/tun ]; then
+    if [ ! -f "${CONFIG_FILE}" ]; then
+        return 1
+    fi
+    # Comment-only templates must not start easytier-core (upstream would apply default listeners/network).
+    if grep -v '^[[:space:]]*#' "${CONFIG_FILE}" | grep -qv '^[[:space:]]*$'; then
         return 0
     fi
+    return 1
+}
+
+easytier_require_configured ()
+{
+    if easytier_config_ready; then
+        return 0
+    fi
+    echo "EasyTier is not configured. Edit ${CONFIG_FILE} with listeners, peers, and credentials, then start again."
+    return 1
+}
+
+easytier_ensure_tun ()
+{
     if [ ! -d /dev/net ]; then
         mkdir -p /dev/net
     fi
-    if command -v mknod >/dev/null 2>&1; then
-        mknod /dev/net/tun c 10 200 2>/dev/null || true
-        chmod 666 /dev/net/tun 2>/dev/null || true
-    fi
-    if [ ! -c /dev/net/tun ] && [ -x /sbin/modprobe ]; then
-        /sbin/modprobe tun 2>/dev/null || true
+    if [ -x /sbin/modprobe ]; then
+        /sbin/modprobe tun
     fi
     if [ ! -c /dev/net/tun ]; then
-        echo "Warning: /dev/net/tun is not available; EasyTier may fail until TUN is enabled on the host."
+        if command -v mknod >/dev/null 2>&1; then
+            mknod /dev/net/tun c 10 200
+            chown root:root /dev/net/tun
+            chmod 600 /dev/net/tun
+        fi
+    fi
+    if [ ! -c /dev/net/tun ]; then
+        echo "Error: /dev/net/tun is unavailable after loading the tun module."
         return 1
     fi
     return 0
@@ -91,5 +113,10 @@ easytier_ensure_tun ()
 
 service_prestart ()
 {
-    easytier_ensure_tun || true
+    if ! easytier_ensure_tun; then
+        exit 1
+    fi
+    if ! easytier_require_configured; then
+        exit 1
+    fi
 }

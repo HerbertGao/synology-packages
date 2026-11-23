@@ -43,4 +43,9 @@ if [ ! -f "${SYNOPKG_PKGVAR}/EasyTier.log" ]; then
   exit 1
 fi
 
-echo "OK simulated EasyTier upgrade preserved config.toml"
+if ! easytier_config_ready; then
+  echo "FAIL: restored user config.toml should be ready to start" >&2
+  exit 1
+fi
+
+echo "OK simulated EasyTier upgrade preserved config.toml and remains start-ready"
