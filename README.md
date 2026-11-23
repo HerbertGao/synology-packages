@@ -4,7 +4,7 @@
 
 当前首批目标：**OpenList v4.2.10**，**DS918+**（`apollolake` / x86_64），**DSM 7.3**。详见 `docs/openlist/` 与 `packages/openlist/`。
 
-> **审阅中**：完整配方、CI 与文档在 feature 分支草稿 PR 中；本 `master` 仅作最小初始化。请勿将此处说明视为已发布套件。
+OpenList 套件对外端口与上游一致：**5244**（`SERVICE_PORT` / `ADMIN_PORT` / DSM 集成元数据）。Overlay 不会把 DSM 元数据同步为 `config.json` 中的自定义 `http_port`；既有非 5244 存量部署的迁移不在仓库文档范围内。
 
 ## 快速检查（开发机）
 

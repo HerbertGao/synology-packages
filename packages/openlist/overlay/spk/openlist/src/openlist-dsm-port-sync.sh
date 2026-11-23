@@ -1,10 +1,12 @@
 # shellcheck shell=sh
-# Functions sourced from service-setup.sh on DSM. Sync runtime http_port into DSM integration files.
-# Build-time defaults come from spksrc SERVICE_PORT (mk/spksrc.service.mk); DSM has no API to
-# re-read package Makefile at runtime (Synology developer guide: port-config protocol-file + app/config).
+# Functions sourced from service-setup.sh on DSM. Keep DSM integration files on the
+# upstream/spksrc SERVICE_PORT (5244). OpenList may listen on scheme.http_port from
+# config.json; this overlay does not rewrite DSM metadata to match a custom runtime port.
 
 OPENLIST_DSM_APP_ID="com.synocommunity.packages.openlist"
 OPENLIST_PKG_NAME_DEFAULT="openlist"
+# Must match SERVICE_PORT / ADMIN_PORT in spk/openlist/Makefile (spksrc.service.mk).
+OPENLIST_DSM_SERVICE_PORT=5244
 
 openlist_pkg_name ()
 {
@@ -66,6 +68,15 @@ openlist_read_sc_port ()
     sed -n 's/^dst\.ports="\([0-9]*\)\/tcp".*/\1/p' "${_file}" | head -1
 }
 
+openlist_read_info_adminport ()
+{
+    _file="$1"
+    if [ ! -f "${_file}" ]; then
+        return 1
+    fi
+    sed -n 's/^adminport="\([0-9]*\)".*/\1/p' "${_file}" | head -1
+}
+
 openlist_sync_app_config_port ()
 {
     _app_config="$1"
@@ -106,11 +117,27 @@ openlist_sync_info_adminport ()
     if [ ! -f "${_info}" ]; then
         return 0
     fi
-    if grep -q '^adminport=' "${_info}"; then
-        sed -i "s/^adminport=.*/adminport=\"${_port}\"/" "${_info}"
-    else
-        printf 'adminport="%s"\n' "${_port}" >> "${_info}"
+    if [ ! -w "${_info}" ] && [ ! -w "$(dirname "${_info}")" ]; then
+        echo "Cannot update ${_info} (not writable); adminport may still show a stale value." >&2
+        return 1
     fi
+    _dir=$(dirname "${_info}")
+    _tmp="${_dir}/.openlist-info-adminport.$$"
+    if grep -q '^adminport=' "${_info}"; then
+        if ! sed "s/^adminport=.*/adminport=\"${_port}\"/" "${_info}" >"${_tmp}"; then
+            rm -f "${_tmp}"
+            return 1
+        fi
+    else
+        cat "${_info}" >"${_tmp}"
+        printf 'adminport="%s"\n' "${_port}" >>"${_tmp}"
+    fi
+    chmod --reference="${_info}" "${_tmp}" 2>/dev/null || true
+    if ! mv -f "${_tmp}" "${_info}"; then
+        rm -f "${_tmp}"
+        return 1
+    fi
+    return 0
 }
 
 openlist_sync_sc_file ()
@@ -128,7 +155,7 @@ openlist_sync_sc_file ()
     fi
 }
 
-# Idempotent: skip when installed files already match config.json http_port.
+# Idempotent: align DSM integration files to OPENLIST_DSM_SERVICE_PORT (upstream 5244).
 openlist_sync_dsm_port_metadata ()
 {
     if [ -z "${SYNOPKG_PKGDEST:-}" ]; then
@@ -136,13 +163,11 @@ openlist_sync_dsm_port_metadata ()
         return 1
     fi
     _pkg=$(openlist_pkg_name)
-    _port=$(openlist_read_http_port_from_config) || {
-        echo "Cannot read scheme.http_port from ${CONFIG_FILE:-config.json}; skipping DSM port sync." >&2
-        return 1
-    }
-    if ! openlist_validate_http_port "${_port}"; then
-        echo "Invalid http_port '${_port}' in ${CONFIG_FILE}; skipping DSM port sync." >&2
-        return 1
+    _port="${OPENLIST_DSM_SERVICE_PORT}"
+
+    _runtime=$(openlist_read_http_port_from_config 2>/dev/null) || _runtime=""
+    if [ -n "${_runtime}" ] && [ "${_runtime}" != "${_port}" ]; then
+        echo "Note: config.json scheme.http_port is ${_runtime}; DSM metadata stays on package port ${_port} (upstream). This package does not migrate existing non-5244 listeners." >&2
     fi
 
     _pkgroot="${OPENLIST_DSM_PKG_ROOT:-/var/packages}"
@@ -165,6 +190,22 @@ openlist_sync_dsm_port_metadata ()
         if ! grep -q "\"port\"[[:space:]]*:[[:space:]]*\"${_port}\"" "${_app_config}"; then
             _need_sync=1
         fi
+    elif [ "${_need_sync}" -eq 0 ] && [ ! -f "${_app_config}" ]; then
+        _need_sync=1
+    fi
+
+    if [ "${_need_sync}" -eq 0 ] && [ -f "${_conf_sc}" ]; then
+        _cur=$(openlist_read_sc_port "${_conf_sc}") || _cur=""
+        if [ "${_cur}" != "${_port}" ]; then
+            _need_sync=1
+        fi
+    fi
+
+    if [ "${_need_sync}" -eq 0 ] && [ -f "${_info}" ]; then
+        _cur=$(openlist_read_info_adminport "${_info}") || _cur=""
+        if [ "${_cur}" != "${_port}" ]; then
+            _need_sync=1
+        fi
     fi
 
     if [ "${_need_sync}" -eq 0 ]; then
@@ -178,8 +219,11 @@ openlist_sync_dsm_port_metadata ()
         echo "Failed to update ${_app_config}" >&2
         return 1
     }
-    openlist_sync_info_adminport "${_info}" "${_port}"
+    openlist_sync_info_adminport "${_info}" "${_port}" || {
+        echo "Failed to update ${_info} adminport" >&2
+        return 1
+    }
 
-    echo "Synchronized DSM UI/firewall metadata to HTTP port ${_port} (from ${CONFIG_FILE})."
+    echo "Synchronized DSM UI/firewall metadata to package HTTP port ${_port} (upstream SERVICE_PORT)."
     return 0
 }

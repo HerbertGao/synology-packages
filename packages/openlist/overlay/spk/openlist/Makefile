@@ -1,6 +1,6 @@
 SPK_NAME = openlist
 SPK_VERS = 4.2.10
-SPK_REV = 1
+SPK_REV = 2
 SPK_ICON = src/openlist.png
 
 DEPENDS = cross/openlist
@@ -8,7 +8,7 @@ DEPENDS = cross/openlist
 MAINTAINER = HerbertGao
 DESCRIPTION = A file list program that supports multiple storages, powered by Gin and SolidJS. Private overlay build (not SynoCommunity official).
 DISPLAY_NAME = OpenList
-CHANGELOG = "1. Bump OpenList to v4.2.10 with upgrade-safe service hooks."
+CHANGELOG = "1. Pin DSM integration to upstream port 5244; preserve upgrade config without custom-port metadata sync."
 
 HOMEPAGE = https://docs.oplist.org/
 LICENSE = AGPL-3.0

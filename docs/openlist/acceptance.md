@@ -5,9 +5,9 @@
 ## 1. 静态 / 模拟（可在 CI 或开发机完成）
 
 - [ ] `scripts/verify-upstream-digests.sh` 通过（官方发布物摘要与 `upstream.lock.json` 一致）
-- [ ] `scripts/check-port-consistency.sh` 通过（默认 5244 一致）
-- [ ] `scripts/test-upgrade-preservation.sh` 通过（模拟保留自定义端口与 `data.db`）
-- [ ] `scripts/test-port-sync.sh` 通过（模拟 5244/5255、幂等、非法端口；非真机 UI）
+- [ ] `scripts/check-port-consistency.sh` 通过（默认 5244 与 `OPENLIST_DSM_SERVICE_PORT` 一致）
+- [ ] `scripts/test-upgrade-preservation.sh` 通过（模拟保留 `config.json`/`data.db`，DSM 元数据维持 5244）
+- [ ] `scripts/test-port-sync.sh` 通过（模拟上游 5244 固定、非 5244 config 不追随、幂等；非真机 UI）
 - [ ] `scripts/test-migrate-failure-sim.sh` 通过（模拟升级缺 config / 数据保留）
 - [ ] `shellcheck` 无 error（若 runner 已安装）
 
@@ -20,8 +20,8 @@
 ## 3. DSM 真机（需人工授权 — 本轮未执行）
 
 - [ ] DS918+ / DSM 7.3 全新安装：向导、默认 5244、服务用户 `sc-openlist` 正常
-- [ ] 自定义 `http_port` 后原地升级到 4.2.10：配置与数据保留，且 `app/config` / INFO / `.sc` 已同步（脚本层）
-- [ ] 套件中心图标「打开」与防火墙即时生效（DSM 会话重载边界见 `upgrade.md`）
+- [ ] 原地升级到含 5244 策略的版本：配置与数据保留；`app/config` / INFO / `.sc` 与 5244 一致（脚本层）
+- [ ] 套件中心图标「打开」与防火墙（DSM 会话重载边界见 `upgrade.md`）
 - [ ] 回滚演练（备份恢复）至少一次
 
 ## 候选版本记录（非本轮目标）

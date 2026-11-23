@@ -85,7 +85,7 @@ service_postupgrade ()
         exit 1
     fi
     if ! openlist_sync_dsm_port_metadata; then
-        echo "DSM port metadata sync failed; upgrade continues (OpenList config unchanged)."
+        echo "DSM port metadata sync to upstream 5244 failed; upgrade continues (OpenList config.json unchanged)."
     fi
 }
 
