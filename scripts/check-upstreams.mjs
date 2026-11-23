@@ -485,6 +485,18 @@ export function shouldSyncTrackingIssue(requested, ref, defaultBranch) {
   return normalizeBranchRef(ref) === defaultBranch;
 }
 
+/**
+ * Exit status after a monitor run. Issue sync on the default branch must not be
+ * gated on unrelated fetch errors once compare+sync has finished.
+ *
+ * @param {boolean} didSyncIssue
+ * @param {string[]} monitorErrors
+ */
+export function monitorProcessExitCode(didSyncIssue, monitorErrors) {
+  if (didSyncIssue) return 0;
+  return monitorErrors.length > 0 ? 1 : 0;
+}
+
 async function main() {
   const validateOnly = process.argv.includes("--validate");
   const syncRequested = process.argv.includes("--sync-issue");
@@ -616,12 +628,12 @@ async function main() {
   process.stdout.write(report);
 
   if (compareOnly) {
-    if (monitorErrors.length > 0) process.exitCode = 1;
+    process.exitCode = monitorProcessExitCode(false, monitorErrors);
     return;
   }
 
   await syncIssue(report, issueSyncAction(releaseUpdates, monitorErrors));
-  if (monitorErrors.length > 0) process.exitCode = 1;
+  process.exitCode = monitorProcessExitCode(true, monitorErrors);
 }
 
 if (

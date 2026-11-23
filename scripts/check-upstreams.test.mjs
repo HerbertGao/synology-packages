@@ -8,6 +8,7 @@ import {
   findOpenTrackingIssue,
   issueSyncAction,
   markdownReport,
+  monitorProcessExitCode,
   parseLock,
   parseSpksrcPkgVers,
   releaseLagMessage,
@@ -48,6 +49,21 @@ test("compareSemver orders release tags", () => {
 test("--validate passes for the current lock and manifest", () => {
   const { errors } = validate(lock, manifest);
   assert.deepEqual(errors, []);
+});
+
+test("monitorProcessExitCode does not fail after default-branch sync", () => {
+  assert.equal(monitorProcessExitCode(true, ["spksrc: 403"]), 0);
+  assert.equal(monitorProcessExitCode(false, ["spksrc: 403"]), 1);
+  assert.equal(monitorProcessExitCode(false, []), 0);
+});
+
+test("release lag still opens the issue when other fetches errored", () => {
+  const releaseUpdates = [
+    "`OpenList`: GitHub latest is `4.2.11` (pinned `4.2.10`).",
+  ];
+  const monitorErrors = ["spksrc: 403 Forbidden"];
+  assert.equal(issueSyncAction(releaseUpdates, monitorErrors), "open");
+  assert.equal(monitorProcessExitCode(true, monitorErrors), 0);
 });
 
 test("shouldSyncTrackingIssue only on the default branch", () => {
