@@ -1,7 +1,9 @@
 PKG_NAME = easytier
 PKG_VERS = 2.7.0
 PKG_EXT = zip
-PKG_DIST_FILE = easytier-linux-x86_64-v$(PKG_VERS).$(PKG_EXT)
+# spksrc downloads $(PKG_DIST_SITE)/$(PKG_DIST_NAME); PKG_DIST_FILE only names the local cache file.
+PKG_DIST_NAME = easytier-linux-x86_64-v$(PKG_VERS).$(PKG_EXT)
+PKG_DIST_FILE = $(PKG_DIST_NAME)
 PKG_DIST_SITE = https://github.com/EasyTier/EasyTier/releases/download/v$(PKG_VERS)
 PKG_DIR = easytier-linux-x86_64
 
