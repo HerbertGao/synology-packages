@@ -11,6 +11,7 @@ import {
   parseLock,
   parseSpksrcPkgVers,
   releaseLagMessage,
+  shouldSyncTrackingIssue,
   sortUpstreamRows,
   spksrcDriftMessage,
   syncTrackingIssue,
@@ -47,6 +48,27 @@ test("compareSemver orders release tags", () => {
 test("--validate passes for the current lock and manifest", () => {
   const { errors } = validate(lock, manifest);
   assert.deepEqual(errors, []);
+});
+
+test("shouldSyncTrackingIssue only on the default branch", () => {
+  assert.equal(
+    shouldSyncTrackingIssue(
+      true,
+      "refs/heads/master",
+      "master",
+    ),
+    true,
+  );
+  assert.equal(
+    shouldSyncTrackingIssue(
+      true,
+      "refs/heads/cursor/feature",
+      "master",
+    ),
+    false,
+  );
+  assert.equal(shouldSyncTrackingIssue(false, "refs/heads/master", "master"), false);
+  assert.equal(shouldSyncTrackingIssue(true, "refs/heads/master", undefined), false);
 });
 
 test("issueSyncAction mirrors pi-extensions boundaries", () => {

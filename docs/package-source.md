@@ -49,7 +49,7 @@ https://herbertgao.com/synology-packages/packages.json
 
 1. 用 GitHub API 对比 lock 中的钉扎与 [OpenListTeam/OpenList](https://github.com/OpenListTeam/OpenList)、[OpenListTeam/OpenList-Frontend](https://github.com/OpenListTeam/OpenList-Frontend) 的最新 release/tag。
 2. 可选地报告 [SynoCommunity/spksrc](https://github.com/SynoCommunity/spksrc) 默认分支相对 pinned commit 的前移，以及 `cross/openlist/Makefile` 上的 `PKG_VERS`（信息性；**不**等于必须同步提升本仓库的 OpenList 版本）。
-3. 打开、更新或关闭唯一跟踪 Issue，标题固定为 `chore: upstream updates available`。
+3. 在仓库**默认分支**上打开、更新或关闭唯一跟踪 Issue，标题固定为 `chore: upstream updates available`（`workflow_dispatch` 在其它分支上仅生成报告，不同步 Issue）。
 
 **不会**自动开升级 PR、合并、发 Release/tag、改 `docs/packages.json` / GitHub Pages，也不会在 NAS 上安装套件。
 

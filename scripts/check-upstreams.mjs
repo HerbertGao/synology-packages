@@ -474,9 +474,34 @@ async function syncIssue(report, action) {
   return syncTrackingIssue(repository, report, action);
 }
 
+export function normalizeBranchRef(ref) {
+  return ref.replace(/^refs\/heads\//, "");
+}
+
+/** @param {boolean} requested @param {string | undefined} ref @param {string | undefined} defaultBranch */
+export function shouldSyncTrackingIssue(requested, ref, defaultBranch) {
+  if (!requested) return false;
+  if (!ref || !defaultBranch) return false;
+  return normalizeBranchRef(ref) === defaultBranch;
+}
+
 async function main() {
   const validateOnly = process.argv.includes("--validate");
-  const shouldSyncIssue = process.argv.includes("--sync-issue");
+  const syncRequested = process.argv.includes("--sync-issue");
+  const shouldSyncIssue = shouldSyncTrackingIssue(
+    syncRequested,
+    process.env.GITHUB_REF,
+    process.env.GITHUB_DEFAULT_BRANCH,
+  );
+  if (syncRequested && !shouldSyncIssue) {
+    const branch = process.env.GITHUB_REF
+      ? normalizeBranchRef(process.env.GITHUB_REF)
+      : "(unknown)";
+    const defaultBranch = process.env.GITHUB_DEFAULT_BRANCH ?? "master";
+    process.stderr.write(
+      `Skipping --sync-issue on branch ${branch}; tracking issue sync runs only on ${defaultBranch}.\n`,
+    );
+  }
   const manifestPath = process.env.UPSTREAMS_MANIFEST ?? defaultManifestPath;
   const manifest = readJson(manifestPath);
   const lockPath = resolve(root, manifest.lock ?? "packages/openlist/upstream.lock.json");
@@ -490,6 +515,8 @@ async function main() {
     );
     return;
   }
+
+  const compareOnly = !shouldSyncIssue;
 
   const releaseUpdates = [];
   const spksrcUpdates = [];
@@ -588,12 +615,12 @@ async function main() {
   });
   process.stdout.write(report);
 
-  if (shouldSyncIssue) {
-    await syncIssue(
-      report,
-      issueSyncAction(releaseUpdates, monitorErrors),
-    );
+  if (compareOnly) {
+    if (monitorErrors.length > 0) process.exitCode = 1;
+    return;
   }
+
+  await syncIssue(report, issueSyncAction(releaseUpdates, monitorErrors));
   if (monitorErrors.length > 0) process.exitCode = 1;
 }
 
