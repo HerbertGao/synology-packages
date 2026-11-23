@@ -14,18 +14,10 @@ fi
 
 OPENLIST="${SYNOPKG_PKGDEST}/bin/openlist --data ${SYNOPKG_PKGVAR}"
 CONFIG_FILE="${SYNOPKG_PKGVAR}/config.json"
-DEFAULT_HTTP_PORT="5244"
 
 SERVICE_COMMAND="${OPENLIST} server"
 SVC_BACKGROUND=yes
 SVC_WRITE_PID=yes
-
-openlist_runtime_http_port ()
-{
-    _p
-    _p=$(openlist_read_http_port_from_config 2>/dev/null) || echo "${DEFAULT_HTTP_PORT}"
-    echo "${_p}"
-}
 
 service_save ()
 {
@@ -95,15 +87,11 @@ service_postupgrade ()
     if ! openlist_sync_dsm_port_metadata; then
         echo "DSM port metadata sync failed; upgrade continues (OpenList config unchanged)."
     fi
-    if ! ${OPENLIST} migrate 2>/tmp/openlist-migrate.log; then
-        echo "OpenList migrate failed; see /tmp/openlist-migrate.log"
-        echo "Package left installed; data under ${SYNOPKG_PKGVAR} preserved."
-        exit 1
-    fi
-    openlist_sync_dsm_port_metadata || true
 }
 
-service_poststart ()
+# spksrc start-stop-status invokes service_prestart on start, not service_poststart
+# (see mk/spksrc.service/start-stop-status).
+service_prestart ()
 {
     openlist_sync_dsm_port_metadata || true
 }

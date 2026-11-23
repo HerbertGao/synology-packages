@@ -8,7 +8,7 @@
 - [ ] `scripts/check-port-consistency.sh` 通过（默认 5244 一致）
 - [ ] `scripts/test-upgrade-preservation.sh` 通过（模拟保留自定义端口与 `data.db`）
 - [ ] `scripts/test-port-sync.sh` 通过（模拟 5244/5255、幂等、非法端口；非真机 UI）
-- [ ] `scripts/test-migrate-failure-sim.sh` 通过（模拟 migrate 失败保留数据）
+- [ ] `scripts/test-migrate-failure-sim.sh` 通过（模拟升级缺 config / 数据保留）
 - [ ] `shellcheck` 无 error（若 runner 已安装）
 
 ## 2. SPK 构建（Docker / 本地 spksrc）

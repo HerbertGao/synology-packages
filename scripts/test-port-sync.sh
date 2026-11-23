@@ -85,13 +85,20 @@ echo "case: idempotent second run"
 run_sync
 run_sync
 
+echo "case: service_prestart hook syncs after port change"
+sed -i 's/"http_port": 5255/"http_port": 5266/' "${CONFIG_FILE}"
+# shellcheck disable=SC1090,SC1091
+. "${SVC}"
+service_prestart
+assert_sc_port "${WORK}/target/app/openlist.sc" "5266"
+
 echo "case: invalid http_port"
 printf '%s\n' '{"scheme":{"http_port":70000}}' >"${CONFIG_FILE}"
 if openlist_sync_dsm_port_metadata; then
   echo "FAIL: expected invalid port rejection" >&2
   exit 1
 fi
-# Prior integration files unchanged (5255)
-assert_sc_port "${WORK}/target/app/openlist.sc" "5255"
+# Prior integration files unchanged (5266 from prestart case)
+assert_sc_port "${WORK}/target/app/openlist.sc" "5266"
 
 echo "OK port-sync simulation passed (DSM UI session may still need refresh; not tested here)"
