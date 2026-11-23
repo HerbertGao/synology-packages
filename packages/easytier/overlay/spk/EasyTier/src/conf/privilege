@@ -4,9 +4,13 @@
     },
     "username": "EasyTier",
     "groupname": "EasyTier",
-    "ctrl-script": [
-        { "action": "start", "run-as": "root" },
-        { "action": "stop", "run-as": "root" },
-        { "action": "status", "run-as": "root" }
+    "tool": [
+        {
+            "relpath": "bin/easytier-core",
+            "user": "package",
+            "group": "package",
+            "capabilities": "cap_net_admin,cap_net_raw",
+            "permission": "0755"
+        }
     ]
 }

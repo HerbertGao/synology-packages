@@ -41,56 +41,50 @@ if [ "${username}" != "EasyTier" ] || [ "${groupname}" != "EasyTier" ]; then
 fi
 
 if jq -e '.["ctrl-script"]' "${PRIV}" >/dev/null 2>&1; then
-  invalid_actions="$(jq -r '.["ctrl-script"][]?.action // empty' "${PRIV}" | while read -r action; do
-    case "${action}" in
-      preinst|postinst|preuninst|postuninst|preupgrade|postupgrade|start|stop|status|prestart|prestop) ;;
-      *) echo "${action}" ;;
-    esac
-  done)"
-  if [ -n "${invalid_actions}" ]; then
-    echo "FAIL: invalid ctrl-script action(s): ${invalid_actions}" >&2
-    exit 1
-  fi
-
-  invalid_run_as="$(jq -r '.["ctrl-script"][]?."run-as" // empty' "${PRIV}" | while read -r ras; do
-    case "${ras}" in
-      root|package) ;;
-      *) echo "${ras}" ;;
-    esac
-  done)"
-  if [ -n "${invalid_run_as}" ]; then
-    echo "FAIL: ctrl-script run-as must be root or package, got: ${invalid_run_as}" >&2
-    exit 1
-  fi
-
-  bloated="$(jq -r '.["ctrl-script"][]? | select(.action | IN("preinst","postinst","preuninst","postuninst","preupgrade","postupgrade","prestart","prestop")) | .action' "${PRIV}")"
-  if [ -n "${bloated}" ]; then
-    echo "FAIL: ctrl-script must not elevate install hooks (found: ${bloated})" >&2
-    exit 1
-  fi
-
-  extra="$(jq -r '.["ctrl-script"][]?.action // empty' "${PRIV}" | while read -r action; do
-    case "${action}" in
-      start|stop|status) ;;
-      *) echo "${action}" ;;
-    esac
-  done)"
-  if [ -n "${extra}" ]; then
-    echo "FAIL: unexpected ctrl-script action(s): ${extra}" >&2
-    exit 1
-  fi
-fi
-
-if ! jq -e '.["ctrl-script"][] | select(.action=="start" and ."run-as"=="root")' "${PRIV}" >/dev/null 2>&1; then
-  echo "FAIL: ctrl-script must declare start with run-as root (TUN interface creation)" >&2
+  echo "FAIL: privilege must not contain ctrl-script (DSM 7.3 rejected start-as-root elevation)" >&2
   exit 1
 fi
 
-for action in stop status; do
-  if ! jq -e --arg a "${action}" '.["ctrl-script"][] | select(.action==$a and ."run-as"=="root")' "${PRIV}" >/dev/null 2>&1; then
-    echo "FAIL: ctrl-script must declare ${action} with run-as root (root-owned service process)" >&2
-    exit 1
-  fi
-done
+if jq -e '.executable' "${PRIV}" >/dev/null 2>&1; then
+  echo "FAIL: privilege must not contain executable (DSM 7.3 rejected alongside invalid ctrl-script)" >&2
+  exit 1
+fi
+
+if ! jq -e '.tool | length >= 1' "${PRIV}" >/dev/null 2>&1; then
+  echo "FAIL: privilege must declare tool[] for easytier-core file capabilities" >&2
+  exit 1
+fi
+
+if ! jq -e '.tool[] | select(.relpath=="bin/easytier-core")' "${PRIV}" >/dev/null 2>&1; then
+  echo "FAIL: tool must include relpath bin/easytier-core" >&2
+  exit 1
+fi
+
+tool_user="$(jq -r '.tool[] | select(.relpath=="bin/easytier-core") | .user' "${PRIV}")"
+tool_group="$(jq -r '.tool[] | select(.relpath=="bin/easytier-core") | .group' "${PRIV}")"
+if [ "${tool_user}" != "package" ] || [ "${tool_group}" != "package" ]; then
+  echo "FAIL: tool user/group for easytier-core must be the literal \"package\" (got user=${tool_user} group=${tool_group})" >&2
+  exit 1
+fi
+
+tool_caps="$(jq -r '.tool[] | select(.relpath=="bin/easytier-core") | .capabilities // empty' "${PRIV}")"
+if [ -z "${tool_caps}" ]; then
+  echo "FAIL: tool entry for easytier-core must declare capabilities" >&2
+  exit 1
+fi
+if [ "${tool_caps}" != "cap_net_admin,cap_net_raw" ]; then
+  echo "FAIL: tool capabilities must be cap_net_admin,cap_net_raw (no +-=eip), got \"${tool_caps}\"" >&2
+  exit 1
+fi
+if echo "${tool_caps}" | grep -qE '[+=]'; then
+  echo "FAIL: tool capabilities must not use setcap suffix symbols (+ or =); use comma-separated cap names only" >&2
+  exit 1
+fi
+
+tool_perm="$(jq -r '.tool[] | select(.relpath=="bin/easytier-core") | .permission // empty' "${PRIV}")"
+if ! echo "${tool_perm}" | grep -qE '^[0-7]{4}$'; then
+  echo "FAIL: tool permission must be a 4-digit octal value, got \"${tool_perm}\"" >&2
+  exit 1
+fi
 
 echo "EasyTier privilege schema checks passed"

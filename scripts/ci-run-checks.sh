@@ -9,6 +9,7 @@ chmod +x "${ROOT}"/scripts/*.sh
 "${ROOT}/scripts/test-easytier-start-guards.sh"
 "${ROOT}/scripts/test-easytier-tun-readiness.sh"
 "${ROOT}/scripts/test-easytier-privilege-schema.sh"
+"${ROOT}/scripts/test-easytier-cap-warn.sh"
 "${ROOT}/scripts/check-port-consistency.sh"
 "${ROOT}/scripts/test-upgrade-preservation.sh"
 "${ROOT}/scripts/test-port-sync.sh"
