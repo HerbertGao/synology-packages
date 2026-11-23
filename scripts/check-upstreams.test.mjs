@@ -11,6 +11,7 @@ import {
   parseLock,
   parseSpksrcPkgVers,
   releaseLagMessage,
+  sortUpstreamRows,
   spksrcDriftMessage,
   syncTrackingIssue,
   trackingReportFingerprint,
@@ -66,6 +67,19 @@ test("formats release and spksrc lag copy", () => {
   );
 });
 
+test("sortUpstreamRows follows manifest watch order", () => {
+  const rows = [
+    { id: "spksrc", name: "SynoCommunity spksrc", local: "abc", upstream: "def" },
+    { id: "openlist_frontend", name: "OpenList Frontend", local: "1", upstream: "1" },
+    { id: "openlist", name: "OpenList", local: "1", upstream: "2" },
+  ];
+  const ordered = sortUpstreamRows(rows, manifest.watches);
+  assert.deepEqual(
+    ordered.map((row) => row.id),
+    ["openlist", "openlist_frontend", "spksrc"],
+  );
+});
+
 test("markdownReport shows local vs upstream table", () => {
   const { parsed } = validate(lock, manifest);
   const body = markdownReport({
@@ -104,6 +118,47 @@ test("parseLock derives watch entries from the manifest", () => {
 test("parseSpksrcPkgVers reads PKG_VERS", () => {
   const text = "PKG_NAME = OpenList\nPKG_VERS = 4.2.7\n";
   assert.equal(parseSpksrcPkgVers(text), "4.2.7");
+});
+
+test("report body is stable when upstreamRows arrive out of order", () => {
+  const { parsed } = validate(lock, manifest);
+  const args = {
+    parsed,
+    releaseUpdates: [],
+    spksrcUpdates: [],
+    errors: [],
+    generatedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const rowsA = [
+    { id: "openlist", name: "OpenList", local: "4.2.10", upstream: "4.2.10" },
+    {
+      id: "openlist_frontend",
+      name: "OpenList Frontend",
+      local: "4.2.10",
+      upstream: "4.2.10",
+    },
+    {
+      id: "spksrc",
+      name: "SynoCommunity spksrc",
+      local: "f29cd8b7e080",
+      upstream: "deadbeef0000",
+      pinnedCommit: lock.spksrc.commit,
+      upstreamCommit: "deadbeef0000000000000000000000000000000000",
+    },
+  ];
+  const rowsB = [...rowsA].toReversed();
+  const reportA = markdownReport({
+    ...args,
+    upstreamRows: sortUpstreamRows(rowsA, manifest.watches),
+  });
+  const reportB = markdownReport({
+    ...args,
+    upstreamRows: sortUpstreamRows(rowsB, manifest.watches),
+  });
+  assert.equal(
+    trackingReportFingerprint(reportA),
+    trackingReportFingerprint(reportB),
+  );
 });
 
 test("tracking fingerprint ignores Generated timestamp", () => {

@@ -217,6 +217,27 @@ export function findOpenTrackingIssue(issues) {
   );
 }
 
+/** @param {Array<{ id?: string, name?: string }>} rows @param {unknown[]} watches */
+export function sortUpstreamRows(rows, watches) {
+  const order = new Map(
+    (watches ?? []).map((watch, index) => {
+      const id =
+        typeof watch === "object" && watch !== null && "id" in watch
+          ? String(/** @type {{ id: string }} */ (watch).id)
+          : undefined;
+      return [id, index];
+    }),
+  );
+  return rows.toSorted((a, b) => {
+    const ai = order.get(a.id) ?? Number.POSITIVE_INFINITY;
+    const bi = order.get(b.id) ?? Number.POSITIVE_INFINITY;
+    if (ai !== bi) return ai - bi;
+    return String(a.name ?? a.id ?? "").localeCompare(
+      String(b.name ?? b.id ?? ""),
+    );
+  });
+}
+
 export function markdownReport({
   parsed,
   releaseUpdates,
@@ -556,12 +577,13 @@ async function main() {
   releaseUpdates.sort((a, b) => a.localeCompare(b));
   spksrcUpdates.sort((a, b) => a.localeCompare(b));
   monitorErrors.sort((a, b) => a.localeCompare(b));
+  const sortedRows = sortUpstreamRows(upstreamRows, manifest.watches);
 
   const report = markdownReport({
     parsed,
     releaseUpdates,
     spksrcUpdates,
-    upstreamRows,
+    upstreamRows: sortedRows,
     errors: monitorErrors,
   });
   process.stdout.write(report);
