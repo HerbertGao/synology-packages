@@ -14,8 +14,8 @@
       "qinst": true,
       "qupgrade": true,
       "thumbnail": [
-        "https://herbertgao.github.io/synology-packages/icons/openlist_256.png",
-        "https://herbertgao.github.io/synology-packages/icons/openlist_72.png"
+        "https://herbertgao.github.io/synology-packages/icons/openlist_72.png",
+        "https://herbertgao.github.io/synology-packages/icons/openlist_256.png"
       ],
       "link": "https://github.com/HerbertGao/synology-packages/releases/download/openlist-4.2.10-2/openlist_apollolake-7.3_4.2.10-2.spk",
       "md5": "cce8c40b64f86060bbc4234300d37f9e",

@@ -18,8 +18,8 @@ https://herbertgao.github.io/synology-packages/packages.json
 2. 将新图标（若需要）放入 `docs/icons/`。
 3. 编辑 `docs/packages.json`：在顶层 `packages` 数组中**新增一条对象**，或**更新**已有 `package` 的 `version`、`link`、`md5`、`sha256`、`size` 等字段。
    - `link` 必须是该版本 Release 上的 SPK 直链，**不要**把 Location 设成 `releases/download/<tag>/packages.json` 这类按 tag 变的地址。
-   - `thumbnail` 应使用 Pages 上的稳定图标 URL，例如  
-     `https://herbertgao.github.io/synology-packages/icons/<name>_256.png`
+   - `thumbnail` 为两段 URL：**先 72×72、后 256×256**（与社群套件中心约定一致），使用 Pages 稳定地址，例如  
+     `…/icons/<name>_72.png` 与 `…/icons/<name>_256.png`
 4. 向 `master` 提交并合并 PR；Pages 更新后，用户端套件来源会自动看到新条目或新版本信息。
 
 ## 不要做的事
