@@ -41,12 +41,12 @@ if [ "${username}" != "EasyTier" ] || [ "${groupname}" != "EasyTier" ]; then
 fi
 
 if jq -e '.["ctrl-script"]' "${PRIV}" >/dev/null 2>&1; then
-  echo "FAIL: privilege must not contain ctrl-script (DSM 7.3 rejected start-as-root elevation)" >&2
+  echo "FAIL: overlay uses privilege tool caps; do not combine with ctrl-script (see docs/easytier/privilege-and-tun.md)" >&2
   exit 1
 fi
 
 if jq -e '.executable' "${PRIV}" >/dev/null 2>&1; then
-  echo "FAIL: privilege must not contain executable (DSM 7.3 rejected alongside invalid ctrl-script)" >&2
+  echo "FAIL: overlay declares caps via tool[], not executable[]" >&2
   exit 1
 fi
 

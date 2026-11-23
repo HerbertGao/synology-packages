@@ -2,48 +2,55 @@
 
 ## 背景
 
-EasyTier 创建虚拟网卡并参与二层/三层组网，通常需要访问 **TUN** 设备及较高的网络栈权限（创建 TUN 接口需要 **CAP_NET_ADMIN**（以及常见地 **CAP_NET_RAW**）；仅打开已有的 `/dev/net/tun` 字符设备对非特权用户往往不够）。部分第三方 Synology 套件借助外部「权限管理」工具在启动时提权；**本仓库不采用该方案**，也不依赖 Simple Permission Manager 或第三方签名的启动包装脚本。
+EasyTier 创建虚拟网卡需要 **CAP_NET_ADMIN**（及通常的 **CAP_NET_RAW**）。本 overlay **不**使用 setuid-root、外部 Permission Manager，或安装脚本内 `setcap`。
 
-在 DSM 7.3 上，`synopkg prepare_install` 会对 SPK 内 `conf/privilege` 做 schema 校验；**非文档字段（例如 `_comment`）会导致错误 319（invalid package privilege content）**。已发布 **2.7.0-1** 因 privilege 含 `_comment` 且缺少显式 `groupname` 而在部分 7.3.2 主机上安装失败。
+官方机制见 [Privilege Config](https://help.synology.com/developer-guide/privilege/privilege_config.html)：`defaults.run-as: package` 为必需；可用 `tool[]` 在安装时为 `bin/easytier-core` 声明 `capabilities`（DSM ≥ 7.0-40656）；亦可用 `ctrl-script` 将 `start`/`stop`/`status` 设为 `root`（[Breaking Changes](https://help.synology.com/developer-guide/breaking_changes.html) 要求特权操作建议走 resource worker，但文档仍列出 `ctrl-script`）。
 
-**2.7.0-2** 采用仅 `defaults.run-as: package` 的 privilege，安装可通过，但 `easytier-core` 以套件用户运行时创建 TUN 接口会报 `Operation not permitted (os error 1)`（属 TUNSETIFF / 能力问题，而非单纯打开设备节点的 EACCES）。
+## 当前 overlay（2.7.0-5 起）
 
-**2.7.0-3** 尝试在 `ctrl-script` 中将 `start` / `stop` / `status` 声明为 `run-as: root`；在 DSM 7.3 上 **`prepare_install` 返回错误 319**，系统日志亦可能提示 `ctrl-script and executable section should not exist`，Package Center 亦会拒绝不能以 root 运行的套件。因此 **不使用 `ctrl-script` 或 `executable` 段**。
+### `conf/privilege`
 
-## 本 overlay 的做法（2.7.0-4 起）
+- `defaults.run-as: package`
+- `username` / `groupname`: `EasyTier`
+- **`tool`**：`bin/easytier-core`，`user`/`group` 为字面量 `package`，`capabilities`: `cap_net_admin,cap_net_raw`，`permission`: `0755`
+- **无** `ctrl-script`、**无** `_comment` 等非文档键
 
-1. **`src/conf/privilege`（DSM 原生）**
-   - `defaults.run-as: package`，专用账户 **`username` / `groupname` 均为 `EasyTier`**。
-   - **`tool` 数组**：对 `bin/easytier-core` 声明 `user` / `group` 为字面量 **`package`**，`capabilities` 为 **`cap_net_admin,cap_net_raw`**（按 [Synology 文档](https://help.synology.com/developer-guide/privilege/privilege_config.html) **不得**包含 `+-=eip` 等后缀符号），并设置 `permission`（例如 `0755`）。DSM 在安装/解包阶段负责将文件能力应用到二进制（参见 [Privilege 概述](https://help.synology.com/developer-guide/privilege/preface.html) 中 “Control file capabilities in package.tgz”）。
-   - **不包含** `ctrl-script`、`executable`、`_comment`。
-   - **不在** `postinst` / `postupgrade` 中调用 `setcap`：在 `defaults.run-as: package` 且安装钩子以套件用户执行时（例如日志出现 `USER=EasyTier`），`setcap` 需要 **CAP_SETFCAP**，失败会导致安装/升级异常；官方文档亦指出安装脚本非零返回可能导致套件状态损坏。
+### 运行时
 
-2. **安装/升级后的能力自检（仅警告）**
-   - `service_postinst` / `service_postupgrade` 在可用时以 `getcap` 检查 `easytier-core` 是否带有 `cap_net_admin` / `cap_net_raw`；缺失时 **打印 Warning，不 `exit 1`**。
-   - **残余风险（未在本仓库 SPK 上逐台证明）**：部分环境下，**非 Synology 官方签名 / 侧载安装** 的套件，DSM 可能 **不** 完全依照 privilege `tool.capabilities` 落盘；管理员可能在升级后需自行以 root 对二进制执行 `setcap`。本 overlay **不** 将 postinst 中的失败 `setcap` 作为修复手段。
+- `SERVICE_USER = auto` → 进程以套件用户 **EasyTier** 运行，能力由 DSM 在安装时写入二进制 file capabilities。
+- `service_prestart`：检查 `/dev/net/tun` 与 tun 驱动线索；**不**以 package 用户执行 `modprobe` / `mknod` / `chmod`（与 DSM 7 降权模型一致，避免假修复）。
+- `service_postinst` / `service_postupgrade` / `service_prestart`：通过 `getcap` **警告**缺失的 cap，**不**在安装阶段中止（installer 以 package 身份运行，不能在此处 `setcap`）。
 
-3. **启动前 TUN 准备（`service_prestart`，以套件用户执行）**
-   - 先 `modprobe tun`（失败可忽略），再用 **`/sys/class/misc/tun`**、**`/sys/module/tun`** 或 **`/proc/modules`** 确认驱动存在。
-   - 若 **`/dev/net/tun` 已存在** 且驱动就绪：**不**修改已有节点的权限；仅校验当前套件用户对该字符设备 **可读且可写**，不满足则失败并提示。
-   - 仅当驱动存在且设备仍缺失时才 `mknod`（套件用户无法 `chown root`）；新建节点至少 **`chmod 0666`**，**不**在 fallback 中设为 `0600`。系统自带 `/dev/net/tun` 常为 **root:root 0666**。
-   - 仅有 mknod 而无驱动证据时启动失败。
+### 从零安装与恢复
 
-4. **实际运行身份**
-   - `SERVICE_USER = auto`；**`easytier-core` 以 EasyTier 套件用户运行**，TUN 接口创建依赖 privilege **`tool` 声明的文件能力**（及上文的侧载残余风险）。
-   - 真机观测（2.7.0-2）：`/dev/net/tun` 可为 `0666`，在二进制具备能力后套件用户可成功创建 TUN，**未必**需要改动设备节点权限。
-   - **2.7.0-4 尚未在 NAS 上完成本 revision 的端到端安装验收**（诚实性说明）。
+见 [fresh-install-restore.md](./fresh-install-restore.md)。
 
-5. **刻意不采用**
-   - `chmod u+s` / setuid-root 替代文件能力。
-   - `ctrl-script` / `executable` 提权。
-   - 在 `service_prestart` 中假定 root 去 `chmod` TUN 节点。
+## 错误 319（`invalid package privilege content`）— 证据边界
 
-## 运维说明
+`last_stage: prepare_install` 表示 DSM 在校验**待装 SPK** 的 `conf/privilege`（或相关元数据）时失败，**不会**进入停服、解包或钩子执行。
 
-- Package Center 安装/升级时展示 privilege（含 `tool` 能力声明）；接受后启动套件。
-- 若 TUN 启动失败且日志提示 EPERM，检查 `getcap` 输出是否含 `cap_net_admin`；侧载场景下可按 DSM/Linux 惯例在升级后手动 `setcap`（需 root）。
-- 若日志提示 TUN 设备对套件用户不可读写，在系统侧调整 `/dev/net/tun` 权限或使用系统默认节点，勿依赖套件以非 root 身份收紧为 `0600`。
+| 证据来源 | 结论 |
+| --- | --- |
+| [Privilege Config](https://help.synology.com/developer-guide/privilege/privilege_config.html) | 非法 JSON、缺少 `defaults`、未知字段可导致 privilege 无效；`tool.capabilities` 为**文档支持**字段 |
+| 本仓库 PR #9 / 2.7.0-2 | **`_comment` 与非规范键** → 319（已修复）；最小合法 privilege（仅 defaults + username + groupname）可通过 prepare_install |
+| 用户 NAS 观测（DSM 7.3.2-86009，自 2.7.0-2 升级） | **2.7.0-3**（`ctrl-script` start/stop/status as root）→ 319；**2.7.0-4**（`tool` + capabilities，无 ctrl-script）→ 319；**全新安装 2.7.0-4 未测** |
+| [Breaking Changes](https://help.synology.com/developer-guide/breaking_changes.html) | `synopkg install` 与 UI 安装约束一致 → **无公开文档**表明升级与全新安装使用不同的 privilege 校验器；**不能**从升级失败推断「全新安装一定成功或一定失败」 |
+| 社区案例（如 gitea-spk 319） | 常见为 **缺少 `defaults` 或 username 为空**；与本 overlay 当前 JSON 形态不同 |
+
+**未证实（本 agent 未在真机复现）：**
+
+- DSM 7.3.2 是否对**侧载/非 Synology 官方** SPK 拒绝 `tool.capabilities` 或 `ctrl-script` root；
+- 卸载重装是否消除 319；
+- 319 是否仅由「旧版已装 privilege 与新版合并」触发（prepare_install 通常只读新 SPK，故该路径**缺日志支撑**）。
+
+**本回合策略：** 保留文档化的 `tool` capabilities 路径；精简脚本中无法以 package 用户完成的 TUN 修补；**不宣称**已解决用户 NAS 上的 319。真机对照请用 [fresh-install-restore.md](./fresh-install-restore.md)。
+
+## 与第三方的差异（刻意）
+
+- 不嵌入 `.sig`、SPM 或仓库外的启动包装。
+- 文档与 PR 不含 NAS 专有 IP、路径白名单或配置密钥。
 
 ## 诚实性说明
 
-CI：`scripts/test-easytier-privilege-schema.sh` 校验 privilege（含必需 `tool`、禁止 `ctrl-script`/`executable`）；`scripts/test-easytier-cap-warn.sh` 校验安装钩子 **警告但不中止**；`scripts/test-easytier-tun-readiness.sh` 覆盖 TUN 就绪逻辑。**不保证**每台 DSM 真机已验证 2.7.0-4。
+- CI：`test-easytier-privilege-schema.sh`、`test-easytier-cap-warn.sh`、`test-easytier-tun-readiness.sh` 等为**离线模拟**，不替代 DSM 安装。
+- SPK 构建：`./scripts/build-easytier.sh` 未在本回合标注为已在 DSM 真机验收。
