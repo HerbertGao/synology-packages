@@ -24,7 +24,7 @@
     },
     {
       "package": "EasyTier",
-      "version": "2.7.0-1",
+      "version": "2.7.0-2",
       "dname": "EasyTier",
       "desc": "EasyTier mesh VPN (official upstream linux x86_64 binaries). Private overlay build (not SynoCommunity official).",
       "maintainer": "EasyTier",
@@ -39,9 +39,9 @@
         "https://herbertgao.com/synology-packages/icons/easytier_72.png",
         "https://herbertgao.com/synology-packages/icons/easytier_256.png"
       ],
-      "link": "https://github.com/HerbertGao/synology-packages/releases/download/easytier-2.7.0-1/EasyTier_apollolake-7.3_2.7.0-1.spk",
-      "md5": "65cbf52964c309ff28f8b56abb79d402",
-      "sha256": "8f5525fcaa791e1568b58e06846ade516adad9d227eb5c8f9a83ca2fae100e62",
+      "link": "https://github.com/HerbertGao/synology-packages/releases/download/easytier-2.7.0-2/EasyTier_apollolake-7.3_2.7.0-2.spk",
+      "md5": "bb0589fcaa5c006d4b65e967c1c69897",
+      "sha256": "e56953086d192498922678e79f91f1d30bbdd431f9d1cf219bd38c55d1c36bf8",
       "size": 29399040
     }
   ]
