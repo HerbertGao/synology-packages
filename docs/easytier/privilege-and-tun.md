@@ -11,8 +11,8 @@ EasyTier 创建虚拟网卡并参与二层/三层组网，通常需要访问 **T
 1. **`src/conf/privilege`（DSM 原生）**
    - `defaults.run-as: package`，专用账户 **`username` / `groupname` 均为 `EasyTier`**（与 `@appdata/EasyTier` 及常见存量套件命名一致）。
    - **不包含** `_comment` 等非 schema 键。
-   - **2.7.0-3** 起在官方文档允许的 `ctrl-script` 中**仅**声明 **`start` → `run-as: root`**：DSM 在 `defaults.run-as: package` 下会以套件用户执行 `start-stop-status` 的默认路径；未声明时 **2.7.0-2** 真机观测为 `easytier-core` 以 **EasyTier** 用户运行，`service_prestart` / `easytier_ensure_tun` 可完成，但核心进程创建 TUN 时出现 `Operation not permitted (os error 1)` 并立即退出。
-   - **不**恢复 **2.7.0-1** 中整段安装生命周期 + stop/status 均以 root 运行的 `ctrl-script`（该形态与错误 319 同期出现；PR #9 已确认 319 的直接原因是 `_comment` 与缺失 `groupname`，但为减少与已验收的 **2.7.0-2** 差异，安装/停止钩子仍走 `defaults.run-as: package`）。
+   - **2.7.0-3** 起在官方文档允许的 `ctrl-script` 中声明 **`start` / `stop` / `status` → `run-as: root`**（**不**包含 `preinst` 等安装钩子）：未声明时 **2.7.0-2** 真机观测为 `easytier-core` 以 **EasyTier** 用户运行，`service_prestart` 可完成，但核心进程创建 TUN 时出现 `Operation not permitted (os error 1)` 并立即退出；`start` 提权后进程以 root 运行，故 **`stop` / `status` 亦需 root**，否则套件中心无法可靠停止或查询状态。
+   - **不**恢复 **2.7.0-1** 中整段安装生命周期均以 root 运行的 `ctrl-script`（该形态与错误 319 同期出现；PR #9 已确认 319 的直接原因是 `_comment` 与缺失 `groupname`，安装/升级钩子仍走 `defaults.run-as: package`）。
 
 2. **启动前 TUN 准备（`service_prestart`）**
    - 先 `modprobe tun`（失败可忽略：可能已加载或 built-in），再用 **`/sys/class/misc/tun`**、**`/sys/module/tun`** 或 **`/proc/modules`** 确认驱动存在。
@@ -23,7 +23,7 @@ EasyTier 创建虚拟网卡并参与二层/三层组网，通常需要访问 **T
 
 3. **实际运行身份（`start-stop-status`）**
    - `SERVICE_USER = auto`；在 **2.7.0-3** 的 privilege 下，**`start` 动作**由 DSM 以 **root** 执行生成的 `scripts/start-stop-status`，从而在同一启动流程内以 root 运行 `service_prestart` 与 **`SERVICE_COMMAND`（`easytier-core`）**，满足 TUN 接口创建权限。
-   - **`stop` / `status`** 未列入 `ctrl-script`，仍按 `defaults.run-as: package` 由套件用户执行（停止与状态查询不需要创建 TUN）。
+   - **`stop` / `status`** 与 `start` 同为 root，以便管理 root 启动的 `easytier-core` 后台进程。
    - 真机验收：安装/升级后启动套件，确认 `easytier-core` 常驻、`tun` 接口存在且组网正常。
 
 4. **与第三方的差异（刻意）**
@@ -38,4 +38,4 @@ EasyTier 创建虚拟网卡并参与二层/三层组网，通常需要访问 **T
 
 ## 诚实性说明
 
-CI 中的 `scripts/test-easytier-privilege-schema.sh` 会校验 privilege JSON 无未知顶层键、`username` / `groupname` / `defaults.run-as` 符合约定，并检查 **最小 `ctrl-script`（仅 `start` 为 root）**；**不保证**已在每一台 DSM 真机上完成安装与 TUN 验收。本 overlay 以 DSM **7.3** 为目标， privilege 形态以 [Synology Privilege Config](https://help.synology.com/developer-guide/privilege/privilege_config.html) 为准。
+CI 中的 `scripts/test-easytier-privilege-schema.sh` 会校验 privilege JSON 无未知顶层键、`username` / `groupname` / `defaults.run-as` 符合约定，并检查 **`ctrl-script` 仅含 `start`/`stop`/`status` 且均为 root**；**不保证**已在每一台 DSM 真机上完成安装与 TUN 验收。本 overlay 以 DSM **7.3** 为目标， privilege 形态以 [Synology Privilege Config](https://help.synology.com/developer-guide/privilege/privilege_config.html) 为准。

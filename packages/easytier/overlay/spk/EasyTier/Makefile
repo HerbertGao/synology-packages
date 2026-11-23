@@ -12,7 +12,7 @@ override DISTRIBUTOR_URL = https://github.com/HerbertGao/synology-packages
 override DISABLE_GITHUB_MAINTAINER = 1
 DESCRIPTION = EasyTier mesh VPN (official upstream linux x86_64 binaries). Private overlay build (not SynoCommunity official).
 DISPLAY_NAME = EasyTier
-CHANGELOG = "3. Declare ctrl-script start as root so easytier-core can create the TUN interface on DSM 7.3 (2.7.0-2 ran start as package and failed with TUN EPERM). 2. Fix conf/privilege for DSM 7.3 prepare_install (drop invalid keys; explicit groupname). 1. Initial overlay: official v2.7.0 binaries, config.toml upgrade preservation; Package Center shows EasyTier as developer and Herbert Gao as publisher."
+CHANGELOG = "3. ctrl-script start/stop/status as root for TUN and service lifecycle (2.7.0-2 start as package failed TUN EPERM); align SPK/catalog icons with official easytier.cn mark. 2. Fix conf/privilege for DSM 7.3 prepare_install (drop invalid keys; explicit groupname). 1. Initial overlay: official v2.7.0 binaries, config.toml upgrade preservation; Package Center shows EasyTier as developer and Herbert Gao as publisher."
 
 HOMEPAGE = https://github.com/EasyTier/EasyTier
 LICENSE = LGPL-3.0

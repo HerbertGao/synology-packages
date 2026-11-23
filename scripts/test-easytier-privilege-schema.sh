@@ -63,9 +63,20 @@ if jq -e '.["ctrl-script"]' "${PRIV}" >/dev/null 2>&1; then
     exit 1
   fi
 
-  bloated="$(jq -r '.["ctrl-script"][]? | select(.action | IN("preinst","postinst","preuninst","postuninst","preupgrade","postupgrade","stop","status","prestart","prestop")) | .action' "${PRIV}")"
+  bloated="$(jq -r '.["ctrl-script"][]? | select(.action | IN("preinst","postinst","preuninst","postuninst","preupgrade","postupgrade","prestart","prestop")) | .action' "${PRIV}")"
   if [ -n "${bloated}" ]; then
-    echo "FAIL: ctrl-script must only elevate start (found: ${bloated})" >&2
+    echo "FAIL: ctrl-script must not elevate install hooks (found: ${bloated})" >&2
+    exit 1
+  fi
+
+  extra="$(jq -r '.["ctrl-script"][]?.action // empty' "${PRIV}" | while read -r action; do
+    case "${action}" in
+      start|stop|status) ;;
+      *) echo "${action}" ;;
+    esac
+  done)"
+  if [ -n "${extra}" ]; then
+    echo "FAIL: unexpected ctrl-script action(s): ${extra}" >&2
     exit 1
   fi
 fi
@@ -74,5 +85,12 @@ if ! jq -e '.["ctrl-script"][] | select(.action=="start" and ."run-as"=="root")'
   echo "FAIL: ctrl-script must declare start with run-as root (TUN interface creation)" >&2
   exit 1
 fi
+
+for action in stop status; do
+  if ! jq -e --arg a "${action}" '.["ctrl-script"][] | select(.action==$a and ."run-as"=="root")' "${PRIV}" >/dev/null 2>&1; then
+    echo "FAIL: ctrl-script must declare ${action} with run-as root (root-owned service process)" >&2
+    exit 1
+  fi
+done
 
 echo "EasyTier privilege schema checks passed"
