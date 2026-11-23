@@ -2,11 +2,11 @@
   "packages": [
     {
       "package": "openlist",
-      "version": "4.2.10-2",
+      "version": "4.2.10-3",
       "dname": "OpenList",
       "desc": "A file list program that supports multiple storages, powered by Gin and SolidJS. Private overlay build (not SynoCommunity official). DSM integration uses upstream port 5244.",
-      "maintainer": "Herbert Gao",
-      "maintainer_url": "https://github.com/HerbertGao/synology-packages",
+      "maintainer": "OpenList Team",
+      "maintainer_url": "https://github.com/OpenListTeam/OpenList",
       "distributor": "Herbert Gao",
       "distributor_url": "https://github.com/HerbertGao/synology-packages",
       "start": false,
@@ -17,10 +17,32 @@
         "https://herbertgao.com/synology-packages/icons/openlist_72.png",
         "https://herbertgao.com/synology-packages/icons/openlist_256.png"
       ],
-      "link": "https://github.com/HerbertGao/synology-packages/releases/download/openlist-4.2.10-2/openlist_apollolake-7.3_4.2.10-2.spk",
-      "md5": "cce8c40b64f86060bbc4234300d37f9e",
-      "sha256": "4c21823af3db6cb4b3576fceb919c240718494d2f55c47ead2d1cbe195694477",
+      "link": "https://github.com/HerbertGao/synology-packages/releases/download/openlist-4.2.10-3/openlist_apollolake-7.3_4.2.10-3.spk",
+      "md5": "9416648d5463daa9d971c2fc976588f1",
+      "sha256": "9f447ec00f6ee0342eb646024d1f2f4a82d470f39c41ea26dca925b33b84f2ba",
       "size": 59648000
+    },
+    {
+      "package": "EasyTier",
+      "version": "2.7.0-1",
+      "dname": "EasyTier",
+      "desc": "EasyTier mesh VPN (official upstream linux x86_64 binaries). Private overlay build (not SynoCommunity official).",
+      "maintainer": "EasyTier",
+      "maintainer_url": "https://github.com/EasyTier/EasyTier",
+      "distributor": "Herbert Gao",
+      "distributor_url": "https://github.com/HerbertGao/synology-packages",
+      "start": false,
+      "qstart": false,
+      "qinst": true,
+      "qupgrade": true,
+      "thumbnail": [
+        "https://herbertgao.com/synology-packages/icons/easytier_72.png",
+        "https://herbertgao.com/synology-packages/icons/easytier_256.png"
+      ],
+      "link": "https://github.com/HerbertGao/synology-packages/releases/download/easytier-2.7.0-1/EasyTier_apollolake-7.3_2.7.0-1.spk",
+      "md5": "65cbf52964c309ff28f8b56abb79d402",
+      "sha256": "8f5525fcaa791e1568b58e06846ade516adad9d227eb5c8f9a83ca2fae100e62",
+      "size": 29399040
     }
   ]
 }
