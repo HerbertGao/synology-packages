@@ -1,0 +1,26 @@
+{
+  "packages": [
+    {
+      "package": "openlist",
+      "version": "4.2.10-2",
+      "dname": "OpenList",
+      "desc": "A file list program that supports multiple storages, powered by Gin and SolidJS. Private overlay build (not SynoCommunity official). DSM integration uses upstream port 5244.",
+      "maintainer": "Herbert Gao",
+      "maintainer_url": "https://github.com/HerbertGao/synology-packages",
+      "distributor": "Herbert Gao",
+      "distributor_url": "https://github.com/HerbertGao/synology-packages",
+      "start": false,
+      "qstart": false,
+      "qinst": true,
+      "qupgrade": true,
+      "thumbnail": [
+        "https://herbertgao.github.io/synology-packages/icons/openlist_72.png",
+        "https://herbertgao.github.io/synology-packages/icons/openlist_256.png"
+      ],
+      "link": "https://github.com/HerbertGao/synology-packages/releases/download/openlist-4.2.10-2/openlist_apollolake-7.3_4.2.10-2.spk",
+      "md5": "cce8c40b64f86060bbc4234300d37f9e",
+      "sha256": "4c21823af3db6cb4b3576fceb919c240718494d2f55c47ead2d1cbe195694477",
+      "size": 59648000
+    }
+  ]
+}

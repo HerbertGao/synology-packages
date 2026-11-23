@@ -6,6 +6,16 @@
 
 OpenList 套件对外端口与上游一致：**5244**（`SERVICE_PORT` / `ADMIN_PORT` / DSM 集成元数据）。Overlay 不会把 DSM 元数据同步为 `config.json` 中的自定义 `http_port`；既有非 5244 存量部署的迁移不在仓库文档范围内。
 
+## DSM 套件来源（Package Center Location）
+
+在仓库启用 GitHub Pages（`master` / `docs`）后，套件中心第三方来源的 **Location** 使用固定目录 URL（不随 Release tag 变化）：
+
+```text
+https://herbertgao.github.io/synology-packages/packages.json
+```
+
+维护说明见 [docs/package-source.md](docs/package-source.md)；当前目录数据为 [docs/packages.json](docs/packages.json)。
+
 ## 快速检查（开发机）
 
 ```bash
