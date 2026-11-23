@@ -86,6 +86,20 @@ grep -q '"port": "5244"' "${WORK}/target/app/config"
 grep -q 'adminport="5244"' "${WORK}/var-packages/openlist/INFO"
 grep -q '"http_port": 5255' "${CONFIG_FILE}"
 
+echo "case: app tree already 5244 but stale conf/INFO (post-upgrade extract)"
+sed -i 's/dst.ports="5244\/tcp"/dst.ports="5255\/tcp"/' "${WORK}/var-packages/openlist/conf/openlist.sc"
+sed -i 's/adminport="5244"/adminport="5255"/' "${WORK}/var-packages/openlist/INFO"
+# target/app/* left at 5244 from prior case — sync must still refresh persisted metadata.
+if openlist_sync_dsm_port_metadata; then
+  :
+else
+  echo "FAIL: sync returned non-zero on stale conf/INFO" >&2
+  exit 1
+fi
+assert_sc_port "${WORK}/target/app/openlist.sc" "5244"
+assert_sc_port "${WORK}/var-packages/openlist/conf/openlist.sc" "5244"
+grep -q 'adminport="5244"' "${WORK}/var-packages/openlist/INFO"
+
 echo "case: idempotent second run"
 run_sync
 run_sync

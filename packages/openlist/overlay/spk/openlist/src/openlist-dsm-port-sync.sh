@@ -68,6 +68,15 @@ openlist_read_sc_port ()
     sed -n 's/^dst\.ports="\([0-9]*\)\/tcp".*/\1/p' "${_file}" | head -1
 }
 
+openlist_read_info_adminport ()
+{
+    _file="$1"
+    if [ ! -f "${_file}" ]; then
+        return 1
+    fi
+    sed -n 's/^adminport="\([0-9]*\)".*/\1/p' "${_file}" | head -1
+}
+
 openlist_sync_app_config_port ()
 {
     _app_config="$1"
@@ -179,6 +188,22 @@ openlist_sync_dsm_port_metadata ()
 
     if [ "${_need_sync}" -eq 0 ] && [ -f "${_app_config}" ]; then
         if ! grep -q "\"port\"[[:space:]]*:[[:space:]]*\"${_port}\"" "${_app_config}"; then
+            _need_sync=1
+        fi
+    elif [ "${_need_sync}" -eq 0 ] && [ ! -f "${_app_config}" ]; then
+        _need_sync=1
+    fi
+
+    if [ "${_need_sync}" -eq 0 ] && [ -f "${_conf_sc}" ]; then
+        _cur=$(openlist_read_sc_port "${_conf_sc}") || _cur=""
+        if [ "${_cur}" != "${_port}" ]; then
+            _need_sync=1
+        fi
+    fi
+
+    if [ "${_need_sync}" -eq 0 ] && [ -f "${_info}" ]; then
+        _cur=$(openlist_read_info_adminport "${_info}") || _cur=""
+        if [ "${_cur}" != "${_port}" ]; then
             _need_sync=1
         fi
     fi

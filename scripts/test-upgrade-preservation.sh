@@ -32,21 +32,35 @@ rm -f "${SYNOPKG_PKGVAR}/config.json"
 service_restore
 mkdir -p "${SYNOPKG_PKGDEST}/app" "${SYNOPKG_PKGDEST}/scripts"
 cp "${OPENLIST_PORT_SYNC_SH}" "${SYNOPKG_PKGDEST}/scripts/openlist-dsm-port-sync.sh"
-printf 'dst.ports="5255/tcp"\n' >"${SYNOPKG_PKGDEST}/app/openlist.sc"
+# New SPK extract: app integration at upstream 5244; persisted tree still stale.
+printf 'dst.ports="5244/tcp"\n' >"${SYNOPKG_PKGDEST}/app/openlist.sc"
 cat >"${SYNOPKG_PKGDEST}/app/config" <<'EOF'
 {
   ".url": {
     "com.synocommunity.packages.openlist": {
-      "port": "5255",
+      "port": "5244",
       "protocol": "http"
     }
   }
 }
 EOF
+export OPENLIST_DSM_PKG_ROOT="${WORK}/var-packages"
+mkdir -p "${WORK}/var-packages/openlist/conf"
+printf 'dst.ports="5255/tcp"\n' >"${WORK}/var-packages/openlist/conf/openlist.sc"
+printf '%s\n' 'package="openlist"' 'adminport="5255"' >"${WORK}/var-packages/openlist/INFO"
 openlist_sync_dsm_port_metadata
 _got_port=$(openlist_read_sc_port "${SYNOPKG_PKGDEST}/app/openlist.sc")
 if [ "${_got_port}" != "5244" ]; then
   echo "FAIL: DSM metadata port ${_got_port} != upstream 5244 after upgrade restore" >&2
+  exit 1
+fi
+_got_conf=$(openlist_read_sc_port "${WORK}/var-packages/openlist/conf/openlist.sc")
+if [ "${_got_conf}" != "5244" ]; then
+  echo "FAIL: conf openlist.sc port ${_got_conf} != 5244" >&2
+  exit 1
+fi
+if ! grep -q 'adminport="5244"' "${WORK}/var-packages/openlist/INFO"; then
+  echo "FAIL: INFO adminport not reset to 5244" >&2
   exit 1
 fi
 
