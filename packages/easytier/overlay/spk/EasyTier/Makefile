@@ -5,11 +5,11 @@ SPK_ICON = src/EasyTier.png
 
 DEPENDS = cross/easytier
 
-MAINTAINER = EasyTier
-MAINTAINER_URL = https://github.com/EasyTier/EasyTier
-DISTRIBUTOR = Herbert Gao
-DISTRIBUTOR_URL = https://github.com/HerbertGao/synology-packages
-DISABLE_GITHUB_MAINTAINER = 1
+override MAINTAINER = EasyTier
+override MAINTAINER_URL = https://github.com/EasyTier/EasyTier
+override DISTRIBUTOR = Herbert Gao
+override DISTRIBUTOR_URL = https://github.com/HerbertGao/synology-packages
+override DISABLE_GITHUB_MAINTAINER = 1
 DESCRIPTION = EasyTier mesh VPN (official upstream linux x86_64 binaries). Private overlay build (not SynoCommunity official).
 DISPLAY_NAME = EasyTier
 CHANGELOG = "1. Initial overlay: official v2.7.0 binaries, config.toml upgrade preservation, DSM-native TUN privileges; Package Center shows EasyTier as developer and Herbert Gao as publisher."

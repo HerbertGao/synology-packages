@@ -40,7 +40,9 @@ https://herbertgao.com/synology-packages/packages.json
 | `MAINTAINER` / `MAINTAINER_URL` | `maintainer` / `maintainer_url` | 上游开源项目（如 OpenList Team、EasyTier）及其官方仓库 |
 | `DISTRIBUTOR` / `DISTRIBUTOR_URL` | `distributor` / `distributor_url` | `Herbert Gao` 与 `https://github.com/HerbertGao/synology-packages`（本 overlay 发布渠道） |
 
-四条 URL/名称字段须**显式**写在各套件 `packages/*/overlay/spk/*/Makefile` 中，并设置 `DISABLE_GITHUB_MAINTAINER = 1`，避免 spksrc 将 `MAINTAINER` 当作 GitHub 用户名改写显示名（含空格的团队名会查表失败；未禁用且缺 `MAINTAINER_URL` 时还可能错误落到 SynoCommunity 默认链接）。
+四条 URL/名称字段须**显式**写在各套件 `packages/*/overlay/spk/*/Makefile` 中，并使用 GNU make 的 `override` 前缀（例如 `override DISTRIBUTOR = Herbert Gao`），因为 `include ../../mk/spksrc.spk.mk` 会在其后 `-include` 由 `make setup` 生成的 `local.mk`，其中 `DISTRIBUTOR`、`DISTRIBUTOR_URL`、`DISABLE_GITHUB_MAINTAINER` 默认为空赋值，普通 `=` 会被后者覆盖。同时设置 `override DISABLE_GITHUB_MAINTAINER = 1`，避免 spksrc 将 `MAINTAINER` 当作 GitHub 用户名改写显示名（含空格的团队名会查表失败；未禁用且缺 `MAINTAINER_URL` 时还可能错误落到 SynoCommunity 默认链接）。
+
+`scripts/build-openlist.sh` / `scripts/build-easytier.sh` 在 `make setup` 之后还会用 `scripts/patch-spksrc-local-publisher.sh` 把 `local.mk` 里空的发布者字段写成 Herbert Gao / 本仓库 URL（纵深防御；套件 Makefile 的 `override` 仍是权威来源）。
 
 `docs/packages.json` 目录里的 `maintainer` / `distributor` 字段面向第三方来源 JSON，应与上述语义一致，在**授权发布**对应 SPK 版本时再更新（本 PR 可只改 Makefile，不动已上线的目录条目）。
 
