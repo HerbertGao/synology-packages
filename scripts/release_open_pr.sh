@@ -133,6 +133,7 @@ if RELEASE_CI_WAIT_SEC=0 bash "$ROOT/scripts/release_try_catalog_update.sh" "$ta
 else
   release_info "CI 构件尚不可用；PR 仅含 manifest"
 fi
+git add -- ".release/${tag}.json"
 
 commit_file=$(mktemp)
 {
