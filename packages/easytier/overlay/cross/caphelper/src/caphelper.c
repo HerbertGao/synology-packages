@@ -72,6 +72,18 @@ static int secure_env(void)
 		emit_fail("setresuid");
 		return -1;
 	}
+	/*
+	 * 4550 is setuid-only: egid stays package group until cleared. Drop supplementary
+	 * groups and reset gid so mkdir/mknod on /dev/net* are root:root, not root:<pkg>.
+	 */
+	if (setgroups(0, NULL) != 0) {
+		emit_fail("setgroups");
+		return -1;
+	}
+	if (setresgid(0, 0, 0) != 0) {
+		emit_fail("setresgid");
+		return -1;
+	}
 	umask(022);
 	clearenv();
 	return 0;
@@ -230,6 +242,24 @@ static int lstat_nofollow_path(const char *path, struct stat *st)
 	return 0;
 }
 
+static int chown_path_root_root(const char *path, const char *fail_what)
+{
+	int fd;
+
+	fd = open(path, O_PATH | O_NOFOLLOW | O_CLOEXEC);
+	if (fd < 0) {
+		emit_fail(fail_what);
+		return -1;
+	}
+	if (fchownat(fd, "", 0, 0, AT_EMPTY_PATH) != 0) {
+		close(fd);
+		emit_fail(fail_what);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 static int ensure_dev_net_dir(void)
 {
 	struct stat st;
@@ -246,10 +276,8 @@ static int ensure_dev_net_dir(void)
 		emit_fail("dev_net_notdir");
 		return -1;
 	}
-	if (st.st_uid != 0 || st.st_gid != 0) {
-		emit_fail("dev_net_owner");
+	if (chown_path_root_root(DEV_NET_DIR, "dev_net_chown") != 0)
 		return -1;
-	}
 	if ((st.st_mode & 07777) != 0755) {
 		if (chmod(DEV_NET_DIR, 0755) != 0) {
 			emit_fail("dev_net_chmod");
@@ -276,6 +304,8 @@ static int ensure_tun_node(bool *created)
 			return -1;
 		}
 		*created = true;
+		if (chown_path_root_root(TUN_DEV_PATH, "tun_chown") != 0)
+			return -1;
 		return 0;
 	}
 	if (S_ISLNK(st.st_mode)) {
@@ -290,6 +320,8 @@ static int ensure_tun_node(bool *created)
 		emit_fail("tun_rdev");
 		return -1;
 	}
+	if (chown_path_root_root(TUN_DEV_PATH, "tun_chown") != 0)
+		return -1;
 	return 0;
 }
 

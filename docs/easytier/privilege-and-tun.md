@@ -27,8 +27,8 @@ EasyTier 创建虚拟网卡需要 **CAP_NET_ADMIN** 与 **CAP_NET_RAW**。本 ov
 | --- | --- |
 | 1 | 仅当 `/proc/modules` 无 `tun ` **且** `/dev/net/tun` 不存在时，从 **`/lib/modules/tun.ko`** 加载（`finit_module` + 校验 root 拥有、常规文件、非 group/other 可写；失败则 `execve /sbin/insmod` 同一路径、空环境） |
 | 2 | 确保 **`/dev/net`** 为 root:root **0755** 目录（`mkdir` + `lstat`，拒绝 symlink） |
-| 3 | 缺失则 **`mknod`** `10:200`；已存在则 `lstat` 校验字符设备与 rdev，拒绝 symlink |
-| 4 | **`chmod 0666`**（`fchmodat`/`fchmod`），属主保持 root:root |
+| 3 | 缺失则 **`mknod`** `10:200`；已存在则 `lstat` 校验字符设备与 rdev，拒绝 symlink；**`fchownat` root:root**（`O_PATH\|O_NOFOLLOW`） |
+| 4 | **`chmod 0666`**（`fchmodat`/`fchmod`）；`/dev/net` 目录同样 **root:root 0755** |
 
 stdout 输出 **`EasyTierCapHelper: STAGE=tun loaded=... created=... mode=...`**，失败为 `RESULT=fail WHAT=...`。流程幂等。
 
@@ -39,7 +39,7 @@ stdout 输出 **`EasyTierCapHelper: STAGE=tun loaded=... created=... mode=...`**
 | 项 | 说明 |
 | --- | --- |
 | 入口 | 仅能通过 DSM 安装的 `4550` 辅助程序；`argc` 必须为 1（无参数）；`clearenv()`，不读取环境或命令行路径 |
-| 权限 | 要求 `geteuid()==0` 后 `setresuid(0,0,0)`；通过 `open("/proc/self/exe")`+`fstat` 跟随 magic 链接，校验辅助程序本身属主为 root、组为套件组（**不得**对 `/proc/self/exe` 使用 `AT_SYMLINK_NOFOLLOW`） |
+| 权限 | `geteuid()==0` 后 `setresuid(0,0,0)`、**`setgroups(0,NULL)`**、**`setresgid(0,0,0)`**（4550 仅 setuid，否则 `mkdir`/`mknod` 会为 root:套件组）；`/proc/self/exe` 用 `open`+`fstat` 读取**磁盘上**辅助程序的套件 gid |
 | 主机 TUN | 固定路径：`/lib/modules/tun.ko`、`/dev/net`、`/dev/net/tun`；禁止 symlink；模块路径不从 env/argv 读取 |
 | 路径 | 固定 `/var/packages/EasyTier/target`（`realpath` + basename 校验）；目录遍历使用 `openat(O_DIRECTORY\|O_NOFOLLOW)` |
 | 二进制 | 仅处理 `bin/easytier-core`：流式 SHA-256 必须等于 **构建时嵌入** 的哈希；先 `fchown` 再 `fsetxattr`；原子 `rename` |
