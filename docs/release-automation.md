@@ -24,10 +24,11 @@
 feat/fix 合入 master（触及 packages/openlist 或 packages/easytier）
     → release workflow（prepare）
     → 分支 release/<pkg>-next + 草稿 release PR
-    → 等待 synology-packages-ci 构件 → 仅更新该套件 packages.json 字段
+    → 在 manifest 中记录 **ci_sha**（触发 prepare 的 master 提交，即 SPK 实际构建来源）
+    → 等待该 sha 上的 synology-packages-ci 构件 → 仅更新该套件 packages.json 字段
 维护者审阅并合并 release PR（保留标题 chore(release): publish <pkg> <vers-rev>）
     → release workflow（publish）
-    → 校验目录哈希与 CI SPK 一致
+    → 按 manifest.ci_sha（**非** merge 提交）拉取构件并校验目录哈希与 CI SPK 一致
     → annotated tag（如 openlist-4.2.10-4）+ GitHub Release（默认 prerelease，非 latest）
     → master 上 docs/packages.json 已由 PR 更新 → GitHub Pages 刷新目录
 ```

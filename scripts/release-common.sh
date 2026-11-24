@@ -94,10 +94,22 @@ read_catalog_version() {
   local catalog_pkg=$1
   node - "$catalog_pkg" <<'NODE'
 const fs = require('fs');
-const catalogPkg = process.argv[1];
+const catalogPkg = process.argv[2];
 const doc = JSON.parse(fs.readFileSync('docs/packages.json', 'utf8'));
 const row = doc.packages.find((p) => p.package === catalogPkg);
 if (!row) process.exit(2);
 process.stdout.write(row.version);
+NODE
+}
+
+# CI commit that produced SPK artifacts (from .release/<tag>.json).
+release_manifest_ci_sha() {
+  local manifest=$1
+  node - "$manifest" <<'NODE'
+const fs = require('fs');
+const m = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const sha = m.ci_sha || m.artifact_sha;
+if (!sha) process.exit(3);
+process.stdout.write(sha);
 NODE
 }

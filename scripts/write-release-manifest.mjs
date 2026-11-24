@@ -1,0 +1,47 @@
+#!/usr/bin/env node
+/**
+ * Write .release/<tag>.json for a pending SPK release.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+
+const [pkg, version, tag, ciSha, outRoot = '.'] = process.argv.slice(2);
+if (!pkg || !version || !tag || !ciSha) {
+  console.error(
+    'usage: write-release-manifest.mjs <pkg> <version> <tag> <ci_sha> [out-root]',
+  );
+  process.exit(2);
+}
+
+if (pkg !== 'openlist' && pkg !== 'easytier') {
+  console.error('pkg must be openlist or easytier');
+  process.exit(2);
+}
+
+const catalog = pkg === 'openlist' ? 'openlist' : 'EasyTier';
+const primary =
+  pkg === 'openlist'
+    ? `openlist_apollolake-7.3_${version}.spk`
+    : `EasyTier_apollolake-7.3_${version}.spk`;
+const extra =
+  pkg === 'easytier' ? [`EasyTier_kvmx64-7.3_${version}.spk`] : [];
+
+const doc = {
+  package: pkg,
+  catalog_package: catalog,
+  version,
+  tag,
+  ci_sha: ciSha,
+  artifact_sha: ciSha,
+  prerelease: true,
+  make_latest: false,
+  ci_workflow: 'synology-packages-ci',
+  primary_spk: primary,
+  extra_assets: extra,
+};
+
+const releaseDir = path.join(outRoot, '.release');
+fs.mkdirSync(releaseDir, { recursive: true });
+const outPath = path.join(releaseDir, `${tag}.json`);
+fs.writeFileSync(outPath, `${JSON.stringify(doc, null, 2)}\n`);
+console.log(outPath);

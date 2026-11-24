@@ -62,30 +62,9 @@ fi
 
 git checkout -B "$branch" "$rev"
 
-mkdir -p .release
-node - "$pkg" "$version" "$tag" <<'NODE'
-const fs = require('fs');
-const [pkg, version, tag] = process.argv.slice(1);
-const catalog = pkg === 'openlist' ? 'openlist' : 'EasyTier';
-const primary =
-  pkg === 'openlist'
-    ? `openlist_apollolake-7.3_${version}.spk`
-    : `EasyTier_apollolake-7.3_${version}.spk`;
-const extra =
-  pkg === 'easytier' ? [`EasyTier_kvmx64-7.3_${version}.spk`] : [];
-const doc = {
-  package: pkg,
-  catalog_package: catalog,
-  version,
-  tag,
-  prerelease: true,
-  make_latest: false,
-  ci_workflow: 'synology-packages-ci',
-  primary_spk: primary,
-  extra_assets: extra,
-};
-fs.writeFileSync(`.release/${tag}.json`, `${JSON.stringify(doc, null, 2)}\n`);
-NODE
+ci_sha=$(git rev-parse "$rev")
+node "$ROOT/scripts/write-release-manifest.mjs" \
+  "$pkg" "$version" "$tag" "$ci_sha"
 
 git add -- ".release/${tag}.json"
 

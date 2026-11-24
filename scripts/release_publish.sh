@@ -53,8 +53,11 @@ manifest="${ROOT}/.release/${tag}.json"
 work=$(mktemp -d)
 trap 'rm -f "$plan_out"; rm -rf "$work"' EXIT
 
-sha=${RELEASE_REV:-HEAD}
-bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$sha" "$work"
+artifact_sha=$(release_manifest_ci_sha "$manifest") \
+  || release_die "manifest 缺少 ci_sha"
+bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$artifact_sha" "$work"
+
+tag_sha=${RELEASE_REV:-HEAD}
 
 prerelease=$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.argv[1])).prerelease!==false?'true':'false')" "$manifest")
 make_latest=$(node -e "const m=JSON.parse(require('fs').readFileSync(process.argv[1]));console.log(m.make_latest===true?'true':'false')" "$manifest")
@@ -63,7 +66,7 @@ git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
 if ! tag_exists_full "$tag"; then
-  git tag -a "$tag" -m "Release ${tag}" "$sha"
+  git tag -a "$tag" -m "Release ${tag}" "$tag_sha"
   git push origin "refs/tags/${tag}"
 else
   release_info "tag ${tag} 已存在，跳过创建"
@@ -88,7 +91,10 @@ if gh release view "$tag" >/dev/null 2>&1; then
   release_info "Release $tag 已存在，仅上传缺失资产（不改为 latest / stable）"
   gh release upload "$tag" "${assets[@]}" --clobber
 else
-  args=(gh release create "$tag" "${assets[@]}" --title "$tag")
+  args=(
+    gh release create "$tag" "${assets[@]}" --title "$tag"
+    --latest=false
+  )
   if [[ $prerelease == true ]]; then
     args+=(--prerelease)
   fi

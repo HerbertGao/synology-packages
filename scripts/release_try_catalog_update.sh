@@ -3,6 +3,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/release-common.sh
+source "$ROOT/scripts/release-common.sh"
 tag=${1:-}
 [[ -n $tag ]] || exit 1
 
@@ -15,7 +17,12 @@ manifest="${ROOT}/.release/${tag}.json"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-if ! bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "${RELEASE_REV:-HEAD}" "$work"; then
+ci_sha=$(release_manifest_ci_sha "$manifest") || {
+  echo "release_try_catalog_update: manifest missing ci_sha" >&2
+  exit 1
+}
+
+if ! bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$ci_sha" "$work"; then
   exit 1
 fi
 
