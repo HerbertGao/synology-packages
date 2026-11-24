@@ -27,14 +27,27 @@ parsed=$(release_version_from_text "$msg")
   exit 1
 }
 
+catalog_pkg_version() {
+  node - "$1" <<'NODE'
+const fs = require('fs');
+const name = process.argv[2];
+const row = JSON.parse(fs.readFileSync('docs/packages.json', 'utf8')).packages
+  .find((p) => p.package === name);
+if (!row) process.exit(2);
+process.stdout.write(row.version);
+NODE
+}
+
+openlist_expected=$(catalog_pkg_version openlist)
 openlist_ver=$(read_catalog_version openlist)
-[[ $openlist_ver == "4.2.10-3" ]] || {
-  echo "read_catalog_version openlist: expected 4.2.10-3 got ${openlist_ver}" >&2
+[[ $openlist_ver == "$openlist_expected" ]] || {
+  echo "read_catalog_version openlist: expected ${openlist_expected} got ${openlist_ver}" >&2
   exit 1
 }
+easytier_expected=$(catalog_pkg_version EasyTier)
 easytier_ver=$(read_catalog_version EasyTier)
-[[ $easytier_ver == "2.7.0-10" ]] || {
-  echo "read_catalog_version EasyTier: expected 2.7.0-10 got ${easytier_ver}" >&2
+[[ $easytier_ver == "$easytier_expected" ]] || {
+  echo "read_catalog_version EasyTier: expected ${easytier_expected} got ${easytier_ver}" >&2
   exit 1
 }
 
