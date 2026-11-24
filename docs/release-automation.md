@@ -24,7 +24,7 @@
 feat/fix 合入 master（触及 packages/openlist 或 packages/easytier）
     → release workflow（prepare）
     → 分支 release/<pkg>-next + 草稿 release PR
-    → 在 manifest 中记录 **ci_sha**（触发 prepare 的 master 提交，即 SPK 实际构建来源）
+    → 在 manifest 中记录 **ci_sha**（`$rev` 上最近、触及该套件 CI path-filter 的提交，而非任意 docs-only master 推送）
     → 等待该 sha 上的 synology-packages-ci 构件 → 仅更新该套件 packages.json 字段
 维护者审阅并合并 release PR（保留标题 chore(release): publish <pkg> <vers-rev>）
     → release workflow（publish）

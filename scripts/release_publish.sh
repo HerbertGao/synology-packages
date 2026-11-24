@@ -55,7 +55,8 @@ trap 'rm -f "$plan_out"; rm -rf "$work"' EXIT
 
 artifact_sha=$(release_manifest_ci_sha "$manifest") \
   || release_die "manifest 缺少 ci_sha"
-bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$artifact_sha" "$work"
+RELEASE_MANIFEST=$manifest
+bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$artifact_sha" "$work" "$manifest"
 
 tag_sha=${RELEASE_REV:-HEAD}
 

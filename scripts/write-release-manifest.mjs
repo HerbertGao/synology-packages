@@ -5,10 +5,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const [pkg, version, tag, ciSha, outRoot = '.'] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+let preserveFrom = null;
+const positional = [];
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i] === '--preserve-from') {
+    preserveFrom = argv[++i];
+  } else {
+    positional.push(argv[i]);
+  }
+}
+
+const [pkg, version, tag, ciSha, outRoot = '.'] = positional;
 if (!pkg || !version || !tag || !ciSha) {
   console.error(
-    'usage: write-release-manifest.mjs <pkg> <version> <tag> <ci_sha> [out-root]',
+    'usage: write-release-manifest.mjs <pkg> <version> <tag> <ci_sha> [out-root] [--preserve-from path]',
   );
   process.exit(2);
 }
@@ -39,6 +50,12 @@ const doc = {
   primary_spk: primary,
   extra_assets: extra,
 };
+
+if (preserveFrom) {
+  const prev = JSON.parse(fs.readFileSync(preserveFrom, 'utf8'));
+  if (typeof prev.prerelease === 'boolean') doc.prerelease = prev.prerelease;
+  if (typeof prev.make_latest === 'boolean') doc.make_latest = prev.make_latest;
+}
 
 const releaseDir = path.join(outRoot, '.release');
 fs.mkdirSync(releaseDir, { recursive: true });

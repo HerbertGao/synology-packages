@@ -22,7 +22,11 @@ ci_sha=$(release_manifest_ci_sha "$manifest") || {
   exit 1
 }
 
-if ! bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$ci_sha" "$work"; then
+pkg=$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.argv[2],'utf8')).package)" -- "$manifest")
+export RELEASE_CI_SPK_JOB
+RELEASE_CI_SPK_JOB=$(bash "$ROOT/scripts/release-ci-sha.sh" job-name "$pkg")
+
+if ! bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$ci_sha" "$work" "$manifest"; then
   exit 1
 fi
 

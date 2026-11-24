@@ -115,19 +115,37 @@ decide_prepare_for_pkg() {
   local rev=$1 pkg=$2 explicit_version=$3
   local makefile_ver catalog_ver cmp tag ancestor range
   local -a subjects=()
+  local explicit_dispatch=0
+  if [[ -n $explicit_version ]]; then
+    explicit_dispatch=1
+    if [[ ${RELEASE_EVENT:-push} != workflow_dispatch ]]; then
+      release_die "显式版本仅用于 workflow_dispatch"
+    fi
+  fi
 
   makefile_ver=$(bash "$ROOT/scripts/package-spk-version.sh" "$pkg")
+  if [[ $explicit_dispatch == 1 && $explicit_version != "$makefile_ver" ]]; then
+    release_die "显式版本 ${explicit_version} 与 Makefile ${makefile_ver} 不一致（CI 未构建该版本 SPK）"
+  fi
+
   catalog_ver=$(read_catalog_version "$(release_catalog_name "$pkg")")
   cmp=$(release_cmp_spk_version "$makefile_ver" "$catalog_ver") \
     || release_die "无法比较 Makefile $makefile_ver 与目录 $catalog_ver"
   if [[ $cmp != 1 ]]; then
+    if [[ $explicit_dispatch == 1 ]]; then
+      release_die "dispatch 请求发布 ${makefile_ver}，但目录已是 ${catalog_ver}（Makefile 未领先目录）"
+    fi
     fix_set_plan skip "$pkg" "$makefile_ver" "" "release/${pkg}-next" \
       skip:catalog-up-to-date ""
     return 0
   fi
 
-  tag=$(release_tag_for "$pkg" "$makefile_ver")
+  local version=$makefile_ver
+  tag=$(release_tag_for "$pkg" "$version")
   if tag_exists_full "$tag"; then
+    if [[ $explicit_dispatch == 1 ]]; then
+      release_die "tag ${tag} 已存在"
+    fi
     fix_set_plan skip "$pkg" "$makefile_ver" "$tag" "release/${pkg}-next" \
       skip:tag-exists ""
     return 0
@@ -142,16 +160,10 @@ decide_prepare_for_pkg() {
     done < <(collect_releasable_subjects "$range" "$(package_path_glob "$pkg")")
   fi
 
-  if [[ -z $explicit_version && ${#subjects[@]} -eq 0 ]]; then
+  if [[ $explicit_dispatch != 1 && ${#subjects[@]} -eq 0 ]]; then
     fix_set_plan skip "$pkg" "$makefile_ver" "$tag" "release/${pkg}-next" \
       skip:no-releasable ""
     return 0
-  fi
-
-  local version=$makefile_ver
-  if [[ -n $explicit_version ]]; then
-    version=$explicit_version
-    tag=$(release_tag_for "$pkg" "$version")
   fi
 
   PLAN_NOTES=$(build_prepare_notes "$pkg" "$version" "$tag" true "${subjects[@]}")

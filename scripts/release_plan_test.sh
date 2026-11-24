@@ -5,6 +5,8 @@ cd "$ROOT"
 
 # shellcheck source=scripts/release-common.sh
 source "$ROOT/scripts/release-common.sh"
+# shellcheck source=scripts/release-ci-sha.sh
+source "$ROOT/scripts/release-ci-sha.sh"
 
 test_cmp() {
   local got
@@ -85,5 +87,36 @@ sha=$(release_manifest_ci_sha "$manifest")
   echo "release_manifest_ci_sha: expected cafebabe got ${sha}" >&2
   exit 1
 }
+
+node "$ROOT/scripts/write-release-manifest.mjs" \
+  easytier 2.7.0-11 easytier-2.7.0-11 deadbeef "$fixture_root" \
+  --preserve-from "$manifest"
+prerelease=$(
+  node -e "console.log(JSON.parse(require('fs').readFileSync(process.argv[1])).prerelease)" \
+    "${fixture_root}/.release/easytier-2.7.0-11.json"
+)
+[[ $prerelease == true ]] || {
+  echo "preserve prerelease expected true got $prerelease" >&2
+  exit 1
+}
+
+resolved_ci=$(bash "$ROOT/scripts/release-ci-sha.sh" resolve easytier HEAD)
+[[ -n $resolved_ci ]] || {
+  echo "release_resolve_ci_sha returned empty" >&2
+  exit 1
+}
+git merge-base --is-ancestor "$resolved_ci" HEAD
+
+openlist_make=$(bash "$ROOT/scripts/package-spk-version.sh" openlist)
+if RELEASE_EVENT=workflow_dispatch RELEASE_EXPLICIT_VERSION="openlist/0.0.0-0" \
+  bash "$ROOT/scripts/release_plan.sh" >/dev/null 2>&1; then
+  echo "expected failure for explicit version != Makefile" >&2
+  exit 1
+fi
+if RELEASE_EVENT=workflow_dispatch RELEASE_EXPLICIT_VERSION="openlist/${openlist_make}" \
+  bash "$ROOT/scripts/release_plan.sh" >/dev/null 2>&1; then
+  echo "expected failure for dispatch when catalog not behind Makefile" >&2
+  exit 1
+fi
 
 echo "release_plan_test: ok"

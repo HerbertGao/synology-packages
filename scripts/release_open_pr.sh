@@ -5,6 +5,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/release-common.sh
 source "$ROOT/scripts/release-common.sh"
+# shellcheck source=scripts/release-ci-sha.sh
+source "$ROOT/scripts/release-ci-sha.sh"
 
 lock=$(git rev-parse --absolute-git-dir)/release-next.lock
 exec 9>"$lock"
@@ -60,21 +62,76 @@ if [[ ${RELEASE_FETCH_TAGS:-} == 1 ]]; then
   git fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}" || true
 fi
 
-git checkout -B "$branch" "$rev"
+open_or_refresh_pr() {
+  local title=$1
+  command -v gh >/dev/null 2>&1 || release_die "未找到 gh"
+  export GH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+  [[ -n ${GH_TOKEN:-} ]] || release_die "缺少 GH_TOKEN"
+  local pr
+  pr=$(
+    gh pr list --head "$branch" --base "$base" --state open \
+      --json number -q '.[0].number // empty'
+  )
+  if [[ -n $pr ]]; then
+    gh pr edit "$pr" --title "$title" --body-file "$notes_out"
+    gh pr view "$pr" --json url -q .url
+  else
+    gh pr create --base "$base" --head "$branch" \
+      --title "$title" --body-file "$notes_out" --draft
+  fi
+}
 
-ci_sha=$(git rev-parse "$rev")
-node "$ROOT/scripts/write-release-manifest.mjs" \
-  "$pkg" "$version" "$tag" "$ci_sha"
+title="chore(release): publish ${pkg} ${version}"
+ci_sha=$(release_resolve_ci_sha "$pkg" "$rev")
+preserve_from=""
+
+if git show-ref --verify --quiet "refs/remotes/origin/${branch}"; then
+  existing_manifest=$(mktemp)
+  if git show "refs/remotes/origin/${branch}:.release/${tag}.json" >"$existing_manifest" 2>/dev/null; then
+    same=$(
+      node - "$existing_manifest" "$pkg" "$version" "$tag" <<'NODE'
+const fs = require('fs');
+const [, , path, pkg, version, tag] = process.argv;
+const m = JSON.parse(fs.readFileSync(path, 'utf8'));
+process.stdout.write(
+  m.package === pkg && m.version === version && m.tag === tag ? 'yes' : 'no',
+);
+NODE
+    )
+    if [[ $same == yes ]]; then
+      old_ci=$(release_manifest_ci_sha "$existing_manifest")
+      if ! release_spk_paths_changed "$old_ci" "$rev" "$pkg"; then
+        git checkout -B "$branch" "origin/${branch}"
+        open_or_refresh_pr "$title"
+        exit 0
+      fi
+      git checkout -B "$branch" "origin/${branch}"
+      ci_sha=$(release_resolve_ci_sha "$pkg" "$rev")
+      preserve_from=$existing_manifest
+    else
+      git checkout -B "$branch" "$rev"
+    fi
+  else
+    git checkout -B "$branch" "$rev"
+  fi
+else
+  git checkout -B "$branch" "$rev"
+fi
+
+manifest_args=("$pkg" "$version" "$tag" "$ci_sha")
+if [[ -n $preserve_from ]]; then
+  manifest_args+=(--preserve-from "$preserve_from")
+fi
+node "$ROOT/scripts/write-release-manifest.mjs" "${manifest_args[@]}"
 
 git add -- ".release/${tag}.json"
 
-if bash "$ROOT/scripts/release_try_catalog_update.sh" "$tag"; then
+if RELEASE_CI_WAIT_SEC=0 bash "$ROOT/scripts/release_try_catalog_update.sh" "$tag"; then
   git add -- docs/packages.json
 else
   release_info "CI 构件尚不可用；PR 仅含 manifest"
 fi
 
-title="chore(release): publish ${pkg} ${version}"
 commit_file=$(mktemp)
 {
   printf '%s\n\n' "$title"
@@ -91,18 +148,4 @@ else
   git push -u origin "HEAD:refs/heads/${branch}"
 fi
 
-command -v gh >/dev/null 2>&1 || release_die "未找到 gh"
-export GH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
-[[ -n ${GH_TOKEN:-} ]] || release_die "缺少 GH_TOKEN"
-
-pr=$(
-  gh pr list --head "$branch" --base "$base" --state open \
-    --json number -q '.[0].number // empty'
-)
-if [[ -n $pr ]]; then
-  gh pr edit "$pr" --title "$title" --body-file "$notes_out"
-  gh pr view "$pr" --json url -q .url
-else
-  gh pr create --base "$base" --head "$branch" \
-    --title "$title" --body-file "$notes_out" --draft
-fi
+open_or_refresh_pr "$title"
