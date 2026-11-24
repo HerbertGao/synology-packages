@@ -35,10 +35,15 @@ for spk in "${spks[@]}"; do
   sha="$(sha256sum "${spk}" | awk '{print $1}')"
   work="$(mktemp -d)"
 
-  tar -xf "${spk}" -C "${work}" package.tgz INFO 2>/dev/null || tar -xf "${spk}" -C "${work}" INFO
+  tar -xf "${spk}" -C "${work}" package.tgz INFO conf/privilege 2>/dev/null \
+    || tar -xf "${spk}" -C "${work}" INFO
   if [ -f "${work}/package.tgz" ]; then
     tar -xzf "${work}/package.tgz" -C "${work}" \
-      conf/privilege bin/easytier-core bin/helper/caphelper 2>/dev/null || true
+      bin/easytier-core bin/helper/caphelper 2>/dev/null || true
+  fi
+  if [ ! -f "${work}/conf/privilege" ] && [ -f "${work}/privilege" ]; then
+    mkdir -p "${work}/conf"
+    mv "${work}/privilege" "${work}/conf/privilege"
   fi
 
   emit "#### \`${base}\`"

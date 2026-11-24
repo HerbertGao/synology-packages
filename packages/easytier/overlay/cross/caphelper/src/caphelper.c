@@ -29,12 +29,18 @@
 #define EASYTIER_CORE_SHA256 "0000000000000000000000000000000000000000000000000000000000000000"
 #endif
 
-/* Linux VFS cap v2: cap_net_admin (bit 12) + cap_net_raw (bit 13), effective+permitted. */
+/*
+ * security.capability layout verified on DSM 7.3.2 VDSM (getfattr -x):
+ * cap_net_admin,cap_net_raw+ep → 02 00 00 01 00 00 30 00 + zero padding (20 bytes).
+ */
 static const unsigned char k_cap_blob[] = {
 	0x02, 0x00, 0x00, 0x01,
 	0x00, 0x00, 0x30, 0x00,
 	0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
 };
+#define K_CAP_ACTIVE_LEN 12
 
 static void emit_fail(const char *what)
 {
@@ -257,9 +263,9 @@ static int caps_match_fd(int fd)
 {
 	unsigned char got[32];
 	ssize_t n = fgetxattr(fd, "security.capability", got, sizeof(got));
-	if (n != (ssize_t)sizeof(k_cap_blob))
+	if (n < K_CAP_ACTIVE_LEN)
 		return 0;
-	return memcmp(got, k_cap_blob, sizeof(k_cap_blob)) == 0;
+	return memcmp(got, k_cap_blob, K_CAP_ACTIVE_LEN) == 0;
 }
 
 static int harden_dirat(int parent_fd, const char *name, gid_t gid)
@@ -444,9 +450,9 @@ int main(int argc, char **argv)
 		emit_fail("target_basename");
 		return 1;
 	}
-	free(resolved);
 
-	tgt = open(PKG_TARGET, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	tgt = open(resolved, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	free(resolved);
 	if (tgt < 0) {
 		emit_fail("open_target");
 		return 1;
