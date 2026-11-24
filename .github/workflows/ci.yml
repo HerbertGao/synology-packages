@@ -86,7 +86,7 @@ jobs:
           fi
           for spk in "${spks[@]}"; do
             work="$(mktemp -d)"
-            tar -xzf "${spk}" -C "${work}" package.tgz
+            tar -xf "${spk}" -C "${work}" package.tgz INFO
             tar -xzf "${work}/package.tgz" -C "${work}"
             echo "GLIBC check for $(basename "${spk}")"
             ./scripts/test-easytier-glibc-max.sh \

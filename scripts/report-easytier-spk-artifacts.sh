@@ -35,7 +35,7 @@ for spk in "${spks[@]}"; do
   sha="$(sha256sum "${spk}" | awk '{print $1}')"
   work="$(mktemp -d)"
 
-  tar -xzf "${spk}" -C "${work}" package.tgz INFO 2>/dev/null || tar -xzf "${spk}" -C "${work}" INFO
+  tar -xf "${spk}" -C "${work}" package.tgz INFO 2>/dev/null || tar -xf "${spk}" -C "${work}" INFO
   if [ -f "${work}/package.tgz" ]; then
     tar -xzf "${work}/package.tgz" -C "${work}" \
       conf/privilege bin/easytier-core bin/helper/caphelper 2>/dev/null || true
