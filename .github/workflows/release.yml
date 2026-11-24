@@ -152,7 +152,9 @@ jobs:
           tag="${{ needs.plan.outputs.tag }}"
           manifest=".release/${tag}.json"
           test -f "$manifest"
-          ci_sha=$(node -e "const j=JSON.parse(require('fs').readFileSync(process.argv[2],'utf8')); const s=j.ci_sha||j.artifact_sha; if(!s) throw new Error('missing ci_sha'); console.log(s)" -- "$manifest")
+          # shellcheck source=scripts/release-common.sh
+          source scripts/release-common.sh
+          ci_sha=$(release_manifest_ci_sha "$manifest")
           work=$(mktemp -d)
           bash scripts/release_fetch_ci_artifacts.sh "$ci_sha" "$work"
           node scripts/update-packages-json.mjs --manifest "$manifest" --spk-dir "$work" --repo "${{ github.repository }}"
