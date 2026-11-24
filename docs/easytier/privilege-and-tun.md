@@ -57,6 +57,8 @@ cat /var/packages/EasyTier/var/caphelper.out
 
 静态检查：`scripts/test-easytier-privilege-schema.sh`；构建后 GLIBC 版本门控：`scripts/test-easytier-glibc-max.sh`。
 
+CI 产出 **apollolake**（DS918+）与 **kvmx64**（Virtual DSM 7.3.2 验证机）两份 SPK，上游二进制相同（官方 linux x86_64 zip）。
+
 详见 [fresh-install-restore.md](./fresh-install-restore.md)。
 
 ## 诚实性

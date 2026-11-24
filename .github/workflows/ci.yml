@@ -63,36 +63,51 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Build EasyTier SPK in SynoCommunity container
+      - name: Build EasyTier SPKs (apollolake + kvmx64) in SynoCommunity container
         run: |
           docker pull ghcr.io/synocommunity/spksrc
           docker run --rm --platform=linux/amd64 \
             -v "${{ github.workspace }}:/repo" -w /repo \
             ghcr.io/synocommunity/spksrc \
-            bash -lc 'apt-get update && apt-get install -y rsync && chmod +x scripts/*.sh && ./scripts/build-easytier.sh'
+            bash -lc 'apt-get update && apt-get install -y rsync && chmod +x scripts/*.sh && EASYTIER_BUILD_ARCHES="apollolake kvmx64" ./scripts/build-easytier.sh'
 
-      - name: GLIBC version gate (easytier-core, caphelper)
+      - name: Fix .build ownership after Docker
+        if: success()
+        run: sudo chown -R "$(id -u):$(id -g)" .build
+
+      - name: GLIBC version gate (each built SPK)
         if: success()
         run: |
           shopt -s nullglob
-          spk=(.build/spksrc/packages/EasyTier_*.spk .build/spksrc/spk/EasyTier/*.spk)
-          if [ "${#spk[@]}" -eq 0 ]; then
-            echo "WARN: no SPK found for glibc check"
-            exit 0
+          spks=(.build/spksrc/packages/EasyTier_*.spk .build/spksrc/spk/EasyTier/*.spk)
+          if [ "${#spks[@]}" -eq 0 ]; then
+            echo "FAIL: no EasyTier SPK produced" >&2
+            exit 1
           fi
-          work=".build/easytier-spk-inspect"
-          rm -rf "${work}"
-          mkdir -p "${work}"
-          tar -xzf "${spk[0]}" -C "${work}" package.tgz
-          tar -xzf "${work}/package.tgz" -C "${work}"
-          ./scripts/test-easytier-glibc-max.sh \
-            "${work}/bin/easytier-core" \
-            "${work}/bin/helper/caphelper"
+          for spk in "${spks[@]}"; do
+            work="$(mktemp -d)"
+            tar -xzf "${spk}" -C "${work}" package.tgz
+            tar -xzf "${work}/package.tgz" -C "${work}"
+            echo "GLIBC check for $(basename "${spk}")"
+            ./scripts/test-easytier-glibc-max.sh \
+              "${work}/bin/easytier-core" \
+              "${work}/bin/helper/caphelper"
+            rm -rf "${work}"
+          done
+
+      - name: Write EasyTier SPK report
+        if: success()
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/report-easytier-spk-artifacts.sh .build/spksrc/packages .build/easytier-spk-report.md
+          cat .build/easytier-spk-report.md
 
       - name: Upload EasyTier SPK artifacts
         if: success()
         uses: actions/upload-artifact@1eb3cb2b3e0f29609092a73eb033bb759a334595 # v4.1.0
         with:
-          name: easytier-spk-apollolake-7.3
-          path: .build/spksrc/packages/*.spk
-          if-no-files-found: warn
+          name: easytier-spk-apollolake-kvmx64-7.3
+          path: |
+            .build/spksrc/packages/EasyTier_*.spk
+            .build/easytier-spk-report.md
+          if-no-files-found: error

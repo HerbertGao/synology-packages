@@ -12,6 +12,14 @@
       "abi": "x86_64",
       "dsm": "7.3",
       "make_args": "ARCH=apollolake TCVERSION=7.3"
+    },
+    {
+      "device": "Virtual DSM (validation)",
+      "arch": "kvmx64",
+      "abi": "x86_64",
+      "dsm": "7.3",
+      "make_args": "ARCH=kvmx64 TCVERSION=7.3",
+      "note": "Same upstream x86_64 binaries; CI builds both apollolake and kvmx64 SPKs."
     }
   ],
   "artifacts": {
