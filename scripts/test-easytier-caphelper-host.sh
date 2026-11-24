@@ -33,4 +33,13 @@ if ! echo "${out}" | grep -q 'RESULT=fail WHAT=euid_not_root'; then
   exit 1
 fi
 
-echo "OK EasyTier caphelper host checks (argc, non-root)"
+SELFTEST_BIN="${WORK}/caphelper-selftest"
+gcc -Wall -Wextra -Wno-unused-function -O2 \
+  -DEASYTIER_CAPHELPER_SELFTEST=1 \
+  -o "${SELFTEST_BIN}" "${SRC}"
+if ! "${SELFTEST_BIN}"; then
+  echo "FAIL: caphelper /proc/self/exe stat selftest" >&2
+  exit 1
+fi
+
+echo "OK EasyTier caphelper host checks (argc, non-root, proc self exe stat)"

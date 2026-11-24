@@ -67,10 +67,30 @@ static int secure_env(void)
 	return 0;
 }
 
+/*
+ * Stat the mapped executable via /proc/self/exe (follow the magic link).
+ * AT_SYMLINK_NOFOLLOW stats the procfs symlink itself (root:root), not the helper.
+ */
+static int stat_self_exe(struct stat *st)
+{
+	int fd;
+
+	fd = open("/proc/self/exe", O_RDONLY | O_CLOEXEC);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, st) != 0) {
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 static int read_exe_gid(gid_t *out_gid)
 {
 	struct stat st;
-	if (fstatat(AT_FDCWD, "/proc/self/exe", &st, AT_SYMLINK_NOFOLLOW) != 0) {
+
+	if (stat_self_exe(&st) != 0) {
 		emit_fail("stat_exe");
 		return -1;
 	}
@@ -420,6 +440,43 @@ static int apply_core_caps(int bin_fd, gid_t gid)
 	return 0;
 }
 
+#ifdef EASYTIER_CAPHELPER_SELFTEST
+/*
+ * CI regression: /proc/self/exe must be stat'd by following the link (or via open+fstat).
+ * NOFOLLOW reports the magic symlink (typically root:root), which caused exe_gid_root on DSM.
+ */
+int main(void)
+{
+	struct stat st_link;
+	struct stat st_file;
+
+	if (fstatat(AT_FDCWD, "/proc/self/exe", &st_link, AT_SYMLINK_NOFOLLOW) != 0) {
+		fprintf(stderr, "SKIP: fstatat NOFOLLOW /proc/self/exe: %s\n", strerror(errno));
+		return 0;
+	}
+	if (stat_self_exe(&st_file) != 0) {
+		fprintf(stderr, "SKIP: stat_self_exe: %s\n", strerror(errno));
+		return 0;
+	}
+	if (!S_ISREG(st_file.st_mode)) {
+		fprintf(stderr, "FAIL: followed /proc/self/exe is not a regular file (mode=0%o)\n",
+		        (unsigned)st_file.st_mode);
+		return 1;
+	}
+	if (S_ISLNK(st_link.st_mode) && st_link.st_gid == 0 && st_file.st_gid != 0) {
+		printf("OK: proc self exe — NOFOLLOW symlink gid=0; binary gid=%u\n",
+		       (unsigned)st_file.st_gid);
+		return 0;
+	}
+	if (S_ISLNK(st_link.st_mode) && st_link.st_ino != st_file.st_ino) {
+		printf("OK: proc self exe — symlink vs binary inode differ\n");
+		return 0;
+	}
+	fprintf(stderr,
+	        "SKIP: host does not expose root:root magic symlink distinct from binary metadata\n");
+	return 0;
+}
+#else
 int main(int argc, char **argv)
 {
 	gid_t pkg_gid;
@@ -491,3 +548,4 @@ int main(int argc, char **argv)
 	emit_ok();
 	return 0;
 }
+#endif /* !EASYTIER_CAPHELPER_SELFTEST */

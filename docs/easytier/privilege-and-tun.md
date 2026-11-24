@@ -17,7 +17,7 @@ EasyTier 创建虚拟网卡需要 **CAP_NET_ADMIN** 与 **CAP_NET_RAW**。本 ov
 | 项 | 说明 |
 | --- | --- |
 | 入口 | 仅能通过 DSM 安装的 `4550` 辅助程序；`argc` 必须为 1（无参数）；`clearenv()`，不读取环境或命令行路径 |
-| 权限 | 要求 `geteuid()==0` 后 `setresuid(0,0,0)`；校验 `/proc/self/exe` 属主为 root、组为套件组 |
+| 权限 | 要求 `geteuid()==0` 后 `setresuid(0,0,0)`；通过 `open("/proc/self/exe")`+`fstat` 跟随 magic 链接，校验辅助程序本身属主为 root、组为套件组（**不得**对 `/proc/self/exe` 使用 `AT_SYMLINK_NOFOLLOW`，否则会读到 symlink 的 root:root） |
 | 路径 | 固定 ` /var/packages/EasyTier/target`（`realpath` + basename 校验）；目录遍历使用 `openat(O_DIRECTORY\|O_NOFOLLOW)` |
 | 二进制 | 仅处理 `bin/easytier-core`：流式 SHA-256 必须等于 **构建时嵌入** 的哈希；先 `fchown` 再 `fsetxattr`；原子 `rename` |
 | 幂等 | 已具备相同哈希、owner、mode、xattr 时直接成功退出 |
@@ -28,6 +28,7 @@ EasyTier 创建虚拟网卡需要 **CAP_NET_ADMIN** 与 **CAP_NET_RAW**。本 ov
 ## 运行时流程（2.7.0-6）
 
 1. `service_prestart`：只读 TUN 检查（`/dev/net/tun` 字符设备 + 套件用户可读写）；不要求 `modprobe`/`mknod`/`chmod`。
+   - 在**原厂 DSM 7.3.2** 上，`tun` 内核模块可能未加载（无 `/dev/net/tun`）；devtmpfs 在模块加载后也常创建 **root:root 0600** 节点，而本套件需要节点存在且对套件用户可读写（部分环境已为 0666）。若不满足，prestart 会明确失败（本 PR **不**改动 TUN 处理方式，仅记录观测）。
 2. 配置检查：`config.toml` 不得仅为注释模板。
 3. **`env -i` 执行 caphelper**，输出追加到 `${SYNOPKG_PKGVAR}/caphelper.out`；失败则 **中止启动**（无静默降级）。
 4. 以套件用户启动 `easytier-core -c ...`（与既往相同）。
