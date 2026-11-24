@@ -10,6 +10,7 @@ chmod +x "${ROOT}"/scripts/*.sh
 "${ROOT}/scripts/test-easytier-tun-readiness.sh"
 "${ROOT}/scripts/test-easytier-privilege-schema.sh"
 "${ROOT}/scripts/test-easytier-caphelper-host.sh"
+"${ROOT}/scripts/test-easytier-caphelper-sha256.sh"
 "${ROOT}/scripts/test-easytier-caphelper-prestart.sh"
 "${ROOT}/scripts/check-port-consistency.sh"
 "${ROOT}/scripts/test-upgrade-preservation.sh"
