@@ -1,6 +1,6 @@
 SPK_NAME = EasyTier
 SPK_VERS = 2.7.0
-SPK_REV = 5
+SPK_REV = 6
 SPK_ICON = src/EasyTier.png
 
 DEPENDS = cross/easytier
@@ -12,7 +12,7 @@ override DISTRIBUTOR_URL = https://github.com/HerbertGao/synology-packages
 override DISABLE_GITHUB_MAINTAINER = 1
 DESCRIPTION = EasyTier mesh VPN (official upstream linux x86_64 binaries). Private overlay build (not SynoCommunity official).
 DISPLAY_NAME = EasyTier
-CHANGELOG = "5. TUN prestart rw diagnostic only; full fresh-install rollback checklist; 319 evidence tiers (unresolved). 4. privilege tool caps. 3. ctrl-script root. 2. Fix privilege schema. 1. Initial overlay."
+CHANGELOG = "6. caphelper setuid helper for caps (unsigned SPK; no tool.capabilities). 5. TUN prestart rw diagnostic. 4. privilege tool caps (rejected on install). 3. ctrl-script root. 2. Fix privilege schema. 1. Initial overlay."
 
 HOMEPAGE = https://github.com/EasyTier/EasyTier
 LICENSE = LGPL-3.0
@@ -30,6 +30,8 @@ POST_STRIP_TARGET = easytier_extra_install
 
 include ../../mk/spksrc.spk.mk
 
+CAPHELPER_SRC = $(CURDIR)/../../cross/caphelper/src/caphelper.c
+
 .PHONY: easytier_extra_install
 easytier_extra_install:
 	@$(MSG) Install default config template for fresh install and license text
@@ -37,3 +39,11 @@ easytier_extra_install:
 	@install -m 644 src/config.toml $(STAGING_DIR)/var/config.toml
 	@install -m 755 -d $(STAGING_DIR)/share
 	@install -m 644 src/LICENSE $(STAGING_DIR)/share/LICENSE
+	@$(MSG) Build caphelper with embedded easytier-core SHA-256
+	@install -m 755 -d $(STAGING_DIR)/bin/helper
+	@HASH=$$(sha256sum $(STAGING_DIR)/bin/easytier-core | awk '{print $$1}'); \
+	$(CC) -Wall -Wextra -O2 -static \
+		-DEASYTIER_CORE_SHA256=\"$$HASH\" \
+		-o $(STAGING_DIR)/bin/helper/caphelper \
+		$(CAPHELPER_SRC)
+	@chmod 755 $(STAGING_DIR)/bin/helper/caphelper

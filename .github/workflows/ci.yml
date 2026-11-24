@@ -71,6 +71,24 @@ jobs:
             ghcr.io/synocommunity/spksrc \
             bash -lc 'apt-get update && apt-get install -y rsync && chmod +x scripts/*.sh && ./scripts/build-easytier.sh'
 
+      - name: GLIBC version gate (easytier-core, caphelper)
+        if: success()
+        run: |
+          shopt -s nullglob
+          spk=(.build/spksrc/packages/EasyTier_*.spk .build/spksrc/spk/EasyTier/*.spk)
+          if [ "${#spk[@]}" -eq 0 ]; then
+            echo "WARN: no SPK found for glibc check"
+            exit 0
+          fi
+          work=".build/easytier-spk-inspect"
+          rm -rf "${work}"
+          mkdir -p "${work}"
+          tar -xzf "${spk[0]}" -C "${work}" package.tgz
+          tar -xzf "${work}/package.tgz" -C "${work}"
+          ./scripts/test-easytier-glibc-max.sh \
+            "${work}/bin/easytier-core" \
+            "${work}/bin/helper/caphelper"
+
       - name: Upload EasyTier SPK artifacts
         if: success()
         uses: actions/upload-artifact@1eb3cb2b3e0f29609092a73eb033bb759a334595 # v4.1.0

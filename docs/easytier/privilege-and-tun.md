@@ -1,47 +1,65 @@
-# EasyTier：DSM 权限与 TUN
+# EasyTier：DSM 权限、caphelper 与 TUN
 
 ## 背景
 
-EasyTier 创建虚拟网卡需要 **CAP_NET_ADMIN**（及通常的 **CAP_NET_RAW**）。本 overlay **不**使用 setuid-root、外部 Permission Manager，或安装脚本内 `setcap`。
+EasyTier 创建虚拟网卡需要 **CAP_NET_ADMIN** 与 **CAP_NET_RAW**。本 overlay **不**对 `easytier-core` 使用 setuid-root，**不**在安装脚本中调用 `setcap`，也不在 `conf/privilege` 里声明 `tool[].capabilities`（见下文 319）。
 
-## 机制选型（当前 overlay，2.7.0-5）
+## 为何不用 `tool.capabilities`（2.7.0-6+）
 
-### 文档原文（可直接引用）
+在 **Virtual DSM 7.3.2-86009**（2026-11-24）上已验证：未签名 SPK 若在 `conf/privilege` 的 `tool[]` 中带有 `capabilities` 字段，Package Center / `synopkg` 会在安装准备阶段返回 **错误 319**（invalid privilege content）。2.7.0-4 / -5 使用 `capabilities: cap_net_admin,cap_net_raw` 时 **全新安装**即失败。
 
-- [Privilege Config](https://help.synology.com/developer-guide/privilege/privilege_config.html)：`defaults.run-as: package`；`tool[]` 可含 `capabilities`（自 7.0-40656 起，字符串不含 `+-=eip`）。
-- [Privilege 概述](https://help.synology.com/developer-guide/privilege/preface.html)：配置可控制 **package.tgz 内文件的 file capabilities**。
-- [Breaking Changes](https://help.synology.com/developer-guide/breaking_changes.html)：**已移除** SPK 签名与 keyring/trust；非 Synology 套件安装时会**提示**（alert）。**未找到**「仅 Synology 可信身份可使用 `tool.capabilities`」的原文。
-- 同上 Breaking Changes：特权操作建议通过 **resource worker** 完成；`ctrl-script` 仍在 Privilege Config 表中列出。
+接受的替代方案：在 `tool[]` 中仅声明一个 **setuid-root 能力辅助程序**（`bin/helper/caphelper`，`user: root`，`group: package`，`permission: 4550`）。DSM 安装后将其设为 `root:<套件 gid>`、模式 `4550`；套件以 `run-as: package` 启动时，执行该辅助程序可获得有效 root，由辅助程序对同目录下的 `easytier-core` 写入 `security.capability` xattr（VFS rev2：`cap_net_admin` + `cap_net_raw`，effective+permitted）。
 
-### 本仓库 `conf/privilege`
+`easytier-core` 本身保持普通套件用户文件（SPK 内 `0755`，运行前由 caphelper 调整为 `root:<gid>` `0750` 并附带 file cap）。**从不对 easytier-core 做 setuid。**
 
-- `username` / `groupname`: `EasyTier`
-- **`tool`**：`bin/easytier-core`，`capabilities`: `cap_net_admin,cap_net_raw`
-- **无** `ctrl-script`
+## 威胁模型（caphelper）
 
-### 运行时（不宣称「TUN 已修好」）
+| 项 | 说明 |
+| --- | --- |
+| 入口 | 仅能通过 DSM 安装的 `4550` 辅助程序；`argc` 必须为 1（无参数）；`clearenv()`，不读取环境或命令行路径 |
+| 权限 | 要求 `geteuid()==0` 后 `setresuid(0,0,0)`；校验 `/proc/self/exe` 属主为 root、组为套件组 |
+| 路径 | 固定 ` /var/packages/EasyTier/target`（`realpath` + basename 校验）；目录遍历使用 `openat(O_DIRECTORY\|O_NOFOLLOW)` |
+| 二进制 | 仅处理 `bin/easytier-core`：流式 SHA-256 必须等于 **构建时嵌入** 的哈希；先 `fchown` 再 `fsetxattr`；原子 `rename` |
+| 幂等 | 已具备相同哈希、owner、mode、xattr 时直接成功退出 |
+| 日志 | 一行 stdout：`EasyTierCapHelper: RESULT=ok\|fail WHAT=...`；套件写入 `var/caphelper.out`（非 Log Center） |
 
-- 进程目标身份：**EasyTier** 套件用户；cap 依赖 DSM 在**安装时**对二进制施加（非 postinst `setcap`）。
-- `service_prestart`：**只读诊断** — 是否存在 **字符设备** `/dev/net/tun`、当前执行上下文是否 **可读可写**；**不** `modprobe` / `mknod` / `chmod`。通过≠ TUN 接口创建一定成功（仍取决于 cap 与内核）。
-- `getcap`：**警告**缺失 cap，不中止安装。
+辅助程序 **不能** 修改任意路径、不能执行 shell、不接受参数；仅能加固 `target` 下目录权限并对 **单一、哈希绑定的** `easytier-core` 施 cap。
 
-详见 [fresh-install-restore.md](./fresh-install-restore.md)。
+## 运行时流程（2.7.0-6）
 
-## 错误 319 — 证据分层
+1. `service_prestart`：只读 TUN 检查（`/dev/net/tun` 字符设备 + 套件用户可读写）；不要求 `modprobe`/`mknod`/`chmod`。
+2. 配置检查：`config.toml` 不得仅为注释模板。
+3. **`env -i` 执行 caphelper**，输出追加到 `${SYNOPKG_PKGVAR}/caphelper.out`；失败则 **中止启动**（无静默降级）。
+4. 以套件用户启动 `easytier-core -c ...`（与既往相同）。
 
-`prepare_install` + 319：**未**进入停服/解包。
+安装/升级：**不**在安装阶段施 cap；全新安装可复制 `var/config.toml` 模板，用户填入既有节点身份后启动。
+
+## 在 DSM 上验证
+
+```bash
+# 辅助程序权限（安装后）
+stat /var/packages/EasyTier/target/bin/helper/caphelper
+
+# 核心二进制 cap（启动后）
+getcap /var/packages/EasyTier/target/bin/easytier-core
+
+# 最近一次 caphelper 结果
+cat /var/packages/EasyTier/var/caphelper.out
+```
+
+## 错误 319 — 当前结论
 
 | 类型 | 内容 |
 | --- | --- |
-| **文档 + 仓库已证实** | 非法 privilege 键（如 `_comment`）→ 319（#9 / 2.7.0-2 对照） |
-| **用户 NAS 观测** | 2.7.0-2 → 2.7.0-3（ctrl-script root）319；2.7.0-2 → 2.7.0-4（tool caps）319；**全新安装 2.7.0-4+ 未测** |
-| **合理推断（非原文）** | Breaking Changes 写 UI 与 `synopkg install` 约束一致 → 可能共享安装门槛；**不能**据此证明 upgrade/install 在 `prepare_install` 上逐步相同 |
-| **检索结论（本回合）** | Developer Guide **无**侧载 SPK 禁用 `tool.capabilities` 的明确条款；**319 根因仍未定位**，**不宣称** 2.7.0-5 已解决 |
-| **未证实** | 卸载重装消除 319；仅 Synology 包可施加 cap；旧 privilege 残留触发校验 |
+| **已证实（Virtual DSM 7.3.2）** | 未签名 SPK + `tool[].capabilities` → 319；改用 caphelper `4550` **可被接受并完成安装** |
+| **本仓库策略（2.7.0-6）** | 移除全部 `capabilities` 字段；仅 caphelper 一条 `tool` |
+| **未在本仓库 CI 验收** | 真机 TUN 创建、mesh 组网、长期升级链 |
 
-**策略**：维持文档化 `tool` caps + prestart 诊断；319 真机对照见恢复清单；**保持旧版在线**直至回滚材料齐套。
+静态检查：`scripts/test-easytier-privilege-schema.sh`；构建后 GLIBC 版本门控：`scripts/test-easytier-glibc-max.sh`。
+
+详见 [fresh-install-restore.md](./fresh-install-restore.md)。
 
 ## 诚实性
 
-- `scripts/test-easytier-*.sh`：离线模拟。
-- 未在本回合将 DSM 真机安装标为已验收。
+- `scripts/test-easytier-*.sh` 为离线/主机模拟；caphelper 主机测试 **不** 覆盖真实 setuid 施 cap（需 DSM）。
+- CI 构建 SPK 上传 artifact，**不** 等同于已在你的 NAS 上验证 mesh。

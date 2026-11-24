@@ -11,7 +11,7 @@
 
 | 事实 | 对备份的含义 |
 | --- | --- |
-| `getcap` 输出是**只读快照**，不能用来**还原** file capabilities | 新安装后 cap 须由 DSM `privilege` `tool` 重新施加，或经**管理员授权**再次 `setcap`；**不承诺**零手工 |
+| `getcap` 输出是**只读快照**，不能用来**还原** file capabilities | 2.7.0-6+ 在**首次启动**时由 `caphelper` 对 `easytier-core` 施 cap；须使用带 caphelper 的 SPK 并成功启动一次，而非仅抄二进制 |
 | 复制 `easytier-core` 文件**不保证**携带扩展属性中的 cap（视文件系统/拷贝方式而定） | 须保留**当时可安装的 SPK** 或完整套件树，而非只抄二进制 |
 | 卸载常删除 `@appdata/EasyTier` | 配置与日志须**在卸载前**离线保存 |
 | `prepare_install` **319** 不会停服 | **无需**为 319 单独卸载；无回滚材料时**禁止**卸载 |
@@ -50,7 +50,7 @@
 2. **`config.toml` 备份**可读，`sha256` 已记录（例如 `sha256sum config.toml > config.toml.sha256`）。
 3. **恢复演练（离线）**：在备份副本上执行 `sha256sum -c`；确认未误拷空文件。
 4. **新版 SPK**（若目标为零从新版本安装）已在沙箱读过 `conf/privilege`；**不假设** 319 会消失。
-5. 明确接受：新装后若 DSM **未**写入 file capabilities，管理员可能仍需**授权** `setcap`（与 2.7.0-2 运维现实一致）——**不是**安装脚本默认步骤。
+5. 明确接受：2.7.0-6+ 依赖**首次成功启动**时 `caphelper` 施 cap；若 `caphelper.out` 非 `RESULT=ok`，需在排查前停止依赖 mesh 的服务。
 
 任一不满足 → **停止**；保持旧版运行，收集 `synopkg` / `/var/log/synopkg.log` 再决策。
 
@@ -59,8 +59,8 @@
 1. 停止 EasyTier（若可操作）。
 2. 再次确认 A/B 完成。
 3. 卸载（接受 `@appdata/EasyTier` 可能被删）。
-4. 安装目标 SPK（第三方提示、privilege 声明含 `tool` capabilities 时需在 UI 确认）。
-5. 阅读安装输出 / `service_postinst` 的 **getcap 警告**。
+4. 安装目标 SPK（第三方提示；2.7.0-6 仅声明 caphelper `4550`，不含 `capabilities`）。
+5. 启动前编辑 `config.toml`；首次启动后检查 `var/caphelper.out` 与 `getcap easytier-core`。
 
 ## D. 恢复配置与属主（不写死 UID）
 
