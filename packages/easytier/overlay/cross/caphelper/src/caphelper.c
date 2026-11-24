@@ -36,9 +36,13 @@
 #define TUN_MINOR 200
 #define INSMOD_PATH "/sbin/insmod"
 
-/* After insmod, devtmpfs may recreate /dev/net/tun as 0600; re-chmod until mode sticks. */
-#define TUN_MODE_SETTLE_RETRIES 12
+/*
+ * After insmod/devtmpfs creates /dev/net/tun, chmod can momentarily read 0666 then
+ * revert to 0600; require 0666 to persist across TUN_MODE_STICK_USEC before success.
+ */
+#define TUN_MODE_SETTLE_RETRIES 24
 #define TUN_MODE_SETTLE_USEC 50000
+#define TUN_MODE_STICK_USEC 100000
 
 #ifndef EASYTIER_CORE_SHA256
 #define EASYTIER_CORE_SHA256 "0000000000000000000000000000000000000000000000000000000000000000"
@@ -367,6 +371,15 @@ static int ensure_tun_world_rw_settled(void)
 	for (attempt = 0; attempt < TUN_MODE_SETTLE_RETRIES; attempt++) {
 		if (chmod_tun_world_rw() != 0)
 			return -1;
+		if (lstat_nofollow_path(TUN_DEV_PATH, &st) != 0) {
+			emit_fail("tun_mode_lstat");
+			return -1;
+		}
+		if ((st.st_mode & 07777) != 0666) {
+			usleep(TUN_MODE_SETTLE_USEC);
+			continue;
+		}
+		usleep(TUN_MODE_STICK_USEC);
 		if (lstat_nofollow_path(TUN_DEV_PATH, &st) != 0) {
 			emit_fail("tun_mode_lstat");
 			return -1;

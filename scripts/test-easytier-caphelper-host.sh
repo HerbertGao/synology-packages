@@ -12,7 +12,7 @@ if ! command -v gcc >/dev/null 2>&1; then
   exit 0
 fi
 
-for sym in setgroups setresgid chown_path_root_root ensure_tun_world_rw_settled; do
+for sym in setgroups setresgid chown_path_root_root ensure_tun_world_rw_settled TUN_MODE_STICK_USEC; do
   if ! grep -q "${sym}" "${SRC}"; then
     echo "FAIL: caphelper.c must implement ${sym} (4550 egid / TUN root:root)" >&2
     exit 1
