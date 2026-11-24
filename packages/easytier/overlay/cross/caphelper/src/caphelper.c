@@ -381,12 +381,17 @@ static int prepare_host_tun(void)
 	return 0;
 }
 
-/* ---- SHA-256 ---- */
+/*
+ * SHA-256 (FIPS 180-4 §4.2.2). Full 64-word K[] — sourced from Linux
+ * lib/crypto/sha256.c (matches sha256sum / OpenSSL on NIST vectors).
+ */
 static const uint32_t k256[64] = {
 	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
 	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
 	0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-	0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc0e17b22, 0xe1d4b6e2, 0xf27c7c5d, 0x106aa070,
+	0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+	0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+	0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
 	0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
 	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 };
@@ -715,7 +720,85 @@ static int apply_core_caps(int bin_fd, gid_t gid)
 	return 0;
 }
 
-#ifdef EASYTIER_CAPHELPER_SELFTEST
+#ifdef EASYTIER_CAPHELPER_SHA256_SELFTEST
+static int sha256_selftest_vector(const uint8_t *data, size_t len, const char *expect64)
+{
+	sha256_ctx ctx;
+	char got[65];
+
+	sha256_init(&ctx);
+	sha256_update(&ctx, data, len);
+	sha256_hexdigest(&ctx, got);
+	if (!hex_eq_ci(got, expect64)) {
+		fprintf(stderr, "FAIL: sha256 vector mismatch\n expect=%s\n got=%s\n", expect64, got);
+		return 1;
+	}
+	return 0;
+}
+
+static int sha256_selftest_file(const char *path, const char *expect64)
+{
+	int fd;
+	char got[65];
+
+	fd = open(path, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		fprintf(stderr, "FAIL: open %s: %s\n", path, strerror(errno));
+		return 1;
+	}
+	if (hash_fd(fd, got) != 0) {
+		close(fd);
+		fprintf(stderr, "FAIL: hash_fd %s\n", path);
+		return 1;
+	}
+	close(fd);
+	if (!hex_eq_ci(got, expect64)) {
+		fprintf(stderr, "FAIL: sha256 file mismatch path=%s\n expect=%s\n got=%s\n", path, expect64,
+		        got);
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * CI regression: caphelper SHA-256 must match NIST / sha256sum (full 64-word K table).
+ */
+int main(int argc, char **argv)
+{
+	static const uint8_t abc[] = { 'a', 'b', 'c' };
+	static const char empty_hex[] =
+	    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+	static const char abc_hex[] =
+	    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+	const char *fixture_path;
+
+	(void)argc;
+	if (sha256_selftest_vector((const uint8_t *)"", 0, empty_hex) != 0)
+		return 1;
+	if (sha256_selftest_vector(abc, sizeof(abc), abc_hex) != 0)
+		return 1;
+
+	fixture_path = (argv != NULL && argc >= 2) ? argv[1] : NULL;
+	if (fixture_path != NULL) {
+		char expect64[65];
+
+		if (fgets(expect64, (int)sizeof(expect64), stdin) == NULL) {
+			fprintf(stderr, "FAIL: expected sha256 hex on stdin for fixture %s\n", fixture_path);
+			return 1;
+		}
+		expect64[strcspn(expect64, "\n\r")] = '\0';
+		if (strlen(expect64) != 64) {
+			fprintf(stderr, "FAIL: fixture digest must be 64 hex chars\n");
+			return 1;
+		}
+		if (sha256_selftest_file(fixture_path, expect64) != 0)
+			return 1;
+	}
+
+	printf("OK: caphelper SHA-256 NIST vectors\n");
+	return 0;
+}
+#elif defined(EASYTIER_CAPHELPER_SELFTEST)
 /*
  * CI regression: /proc/self/exe must be stat'd by following the link (or via open+fstat).
  * NOFOLLOW reports the magic symlink (typically root:root), which caused exe_gid_root on DSM.
