@@ -8,6 +8,7 @@ SVC="${ROOT}/packages/easytier/overlay/spk/EasyTier/src/service-setup.sh"
 
 rm -rf "${WORK}"
 mkdir -p "${WORK}/var" "${WORK}/dev/net"
+: >"${WORK}/var/caphelper.out"
 
 export SYNOPKG_PKGVAR="${WORK}/var"
 export SYNOPKG_PKGDEST="${WORK}/target"
@@ -50,7 +51,7 @@ fi
 
 if ! easytier_host_can_mknod; then
   echo "Note: host cannot mknod; skipped rw-probe simulations"
-  echo "OK EasyTier TUN readiness rejects missing device (no mknod/modprobe in prestart)"
+  echo "OK EasyTier TUN readiness rejects missing device (caphelper prepares TUN on DSM; prestart is rw-only)"
   exit 0
 fi
 
@@ -85,4 +86,4 @@ if easytier_ensure_tun 2>/dev/null; then
   exit 1
 fi
 
-echo "OK EasyTier TUN prestart: char device + rw probe only; no permission mutation"
+echo "OK EasyTier TUN post-caphelper: char device + package-user rw probe only"

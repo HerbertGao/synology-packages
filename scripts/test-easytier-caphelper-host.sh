@@ -42,4 +42,10 @@ if ! "${SELFTEST_BIN}"; then
   exit 1
 fi
 
+if [ "$(id -u)" -eq 0 ] && [ -r /lib/modules/tun.ko ]; then
+  echo "Note: full caphelper TUN+ caps path needs DSM package layout; not exercised here"
+else
+  echo "SKIP: caphelper TUN kernel steps require root and /lib/modules/tun.ko (DSM prestart)"
+fi
+
 echo "OK EasyTier caphelper host checks (argc, non-root, proc self exe stat)"

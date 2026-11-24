@@ -79,7 +79,7 @@
 | 情况 | 动作 |
 | --- | --- |
 | 新 SPK `prepare_install` **319** | **未卸载前**：继续用旧版；**已卸载且无回滚 SPK**：用 A1 旧 SPK 重装，恢复 D，再评估 cap |
-| 启动前 TUN / EACCES | 看 prestart 对 `/dev/net/tun` **类型 + rw** 的报错；修主机节点或 cap，脚本**不会** chmod 设备 |
+| 启动前 TUN / EACCES | 查看 `var/caphelper.out`（`STAGE=tun`）与 prestart 对 `/dev/net/tun` **类型 + rw** 的报错；2.7.0-7+ caphelper 在启动时准备 TUN |
 | cap 未应用 | DSM 侧排查或授权 `setcap`；getcap 快照不能代劳 |
 | 配置损坏 | 从离线备份重写；模板**不能**推断原 `instance_id` / 密钥 |
 

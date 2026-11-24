@@ -142,25 +142,25 @@ easytier_tun_rw_by_package_user ()
     return 0
 }
 
-# Prestart diagnostic only: does not modprobe, mknod, or chmod (package user cannot do those reliably).
+# Post-caphelper check: package user must open /dev/net/tun rw (caphelper prepares the node as root).
 easytier_ensure_tun ()
 {
     if [ ! -d "${EASYTIER_TUN_DEV_DIR}" ]; then
-        echo "Error: ${EASYTIER_TUN_DEV_DIR} is missing; fix the host TUN setup before starting EasyTier."
+        echo "Error: ${EASYTIER_TUN_DEV_DIR} is missing after caphelper; see ${CAPHELPER_OUT} (STAGE=tun) and fix the host."
         return 1
     fi
 
     if [ ! -c "${EASYTIER_TUN_DEV}" ]; then
         if ! easytier_tun_driver_present; then
-            echo "Error: ${EASYTIER_TUN_DEV} is missing and tun driver evidence is absent; enable TUN on the NAS, then retry."
+            echo "Error: ${EASYTIER_TUN_DEV} is missing and tun driver evidence is absent after caphelper; see ${CAPHELPER_OUT} (STAGE=tun)."
             return 1
         fi
-        echo "Error: tun driver appears present but ${EASYTIER_TUN_DEV} is missing; reboot or fix device nodes on the host (this package does not create the node as the package user)."
+        echo "Error: tun driver appears present but ${EASYTIER_TUN_DEV} is missing after caphelper; see ${CAPHELPER_OUT} (STAGE=tun)."
         return 1
     fi
 
     if ! easytier_tun_rw_by_package_user; then
-        echo "Error: ${EASYTIER_TUN_DEV} is not readable/writable by the EasyTier package user (EACCES-style failure at start); fix host device ACL/mode or ensure caphelper applied caps on easytier-core."
+        echo "Error: ${EASYTIER_TUN_DEV} is not readable/writable by the EasyTier package user after caphelper (expected mode 0666); see ${CAPHELPER_OUT}."
         return 1
     fi
 
@@ -172,13 +172,13 @@ easytier_ensure_tun ()
 
 service_prestart ()
 {
-    if ! easytier_ensure_tun; then
-        exit 1
-    fi
     if ! easytier_require_configured; then
         exit 1
     fi
     if ! easytier_run_caphelper; then
+        exit 1
+    fi
+    if ! easytier_ensure_tun; then
         exit 1
     fi
 }
