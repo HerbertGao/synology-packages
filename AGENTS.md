@@ -124,6 +124,14 @@
 - **禁止** 提交 `network_secret`、peer URI、instance ID、真实主机/IP/VIP、生产 SSH 密钥或完整 `config.toml`。
 - 文档中只写通用流程与 **配置 hash**（由维护者在 PR 外保管）。
 
+## GitHub Actions（`synology-packages-ci`）
+
+- **触发**：`pull_request`（任意分支）与 **`push` 仅限 `master`**，避免同一提交同时跑 push + PR 两套重型任务。
+- **`static-checks`**：每次工作流均执行（含仅改 `docs/`、`AGENTS.md`、`docs/packages.json`、图标的 PR）。
+- **`spk-build`**：仅当变更触及 OpenList SPK 相关路径（`packages/openlist/**`、OpenList 构建脚本、共享 overlay 脚本 `scripts/apply-overlay.sh` / `patch-spksrc-local-publisher.sh`、或本 workflow）时执行。
+- **`easytier-spk-build`**：仅当变更触及 EasyTier SPK 相关路径（`packages/easytier/**`、EasyTier 构建/报告/GLIBC 脚本、同上共享脚本、或本 workflow）时执行。
+- 仅文档/目录类 PR 通常 **跳过** 两个 SPK 任务；请确保分支保护要求的是 **`static-checks`（必需）**，SPK 任务为按需或可选，以免 `skipped` 阻塞合入。
+
 ## 测试命令
 
 ```bash
