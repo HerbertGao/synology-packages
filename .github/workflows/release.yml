@@ -154,9 +154,8 @@ jobs:
           test -f "$manifest"
           # shellcheck source=scripts/release-common.sh
           source scripts/release-common.sh
-          ci_sha=$(release_manifest_ci_sha "$manifest")
           work=$(mktemp -d)
-          bash scripts/release_fetch_ci_artifacts.sh "$ci_sha" "$work" "$manifest"
+          bash scripts/release_fetch_manifest_artifacts.sh "$manifest" "$work" >/dev/null
           node scripts/update-packages-json.mjs --manifest "$manifest" --spk-dir "$work" --repo "${{ github.repository }}"
           git diff --exit-code docs/packages.json || {
             echo "::error::docs/packages.json does not match CI SPK hashes; fix release PR before publish."

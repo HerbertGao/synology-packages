@@ -108,6 +108,31 @@ release_manifest_ci_sha() {
 }
 
 # Read one manifest field (arrays joined by newline; booleans as true/false).
+# Ordered artifact source SHAs: content ci_sha, then prepare ci_head when distinct.
+release_manifest_artifact_candidates() {
+  local manifest=$1
+  local ci_sha="" ci_head=""
+  ci_sha=$(release_manifest_field "$manifest" ci_sha)
+  ci_head=$(release_manifest_field "$manifest" ci_head 2>/dev/null) || ci_head=""
+  printf '%s\n' "$ci_sha"
+  if [[ -n $ci_head && $ci_head != "$ci_sha" ]]; then
+    printf '%s\n' "$ci_head"
+  fi
+}
+
+release_manifest_set_artifact_sha() {
+  local manifest=$1 new_sha=$2
+  node - "$manifest" "$new_sha" <<'NODE'
+const fs = require('fs');
+const p = process.argv[2];
+const sha = process.argv[3];
+const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+m.ci_sha = sha;
+m.artifact_sha = sha;
+fs.writeFileSync(p, `${JSON.stringify(m, null, 2)}\n`);
+NODE
+}
+
 release_manifest_field() {
   local manifest=$1 field=$2
   node - "$manifest" "$field" <<'NODE'

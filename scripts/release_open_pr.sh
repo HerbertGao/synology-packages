@@ -118,7 +118,9 @@ else
   git checkout -B "$branch" "$rev"
 fi
 
+ci_head=$(git rev-parse "$rev")
 manifest_args=("$pkg" "$version" "$tag" "$ci_sha")
+manifest_args+=(--ci-head "$ci_head")
 if [[ -n $preserve_from ]]; then
   manifest_args+=(--preserve-from "$preserve_from")
 fi

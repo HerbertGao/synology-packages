@@ -53,10 +53,8 @@ manifest="${ROOT}/.release/${tag}.json"
 work=$(mktemp -d)
 trap 'rm -f "$plan_out"; rm -rf "$work"' EXIT
 
-artifact_sha=$(release_manifest_ci_sha "$manifest") \
-  || release_die "manifest 缺少 ci_sha"
-RELEASE_MANIFEST=$manifest
-bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$artifact_sha" "$work" "$manifest"
+bash "$ROOT/scripts/release_fetch_manifest_artifacts.sh" "$manifest" "$work" \
+  || release_die "无法拉取 manifest 所指的 CI 构件"
 
 tag_sha=${RELEASE_REV:-HEAD}
 

@@ -7,10 +7,13 @@ import path from 'node:path';
 
 const argv = process.argv.slice(2);
 let preserveFrom = null;
+let ciHead = null;
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--preserve-from') {
     preserveFrom = argv[++i];
+  } else if (argv[i] === '--ci-head') {
+    ciHead = argv[++i];
   } else {
     positional.push(argv[i]);
   }
@@ -44,6 +47,7 @@ const doc = {
   tag,
   ci_sha: ciSha,
   artifact_sha: ciSha,
+  ...(ciHead ? { ci_head: ciHead } : {}),
   prerelease: true,
   make_latest: false,
   ci_workflow: 'synology-packages-ci',

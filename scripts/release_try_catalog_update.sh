@@ -17,17 +17,16 @@ manifest="${ROOT}/.release/${tag}.json"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-ci_sha=$(release_manifest_ci_sha "$manifest") || {
-  echo "release_try_catalog_update: manifest missing ci_sha" >&2
-  exit 1
-}
-
 pkg=$(release_manifest_field "$manifest" package)
 export RELEASE_CI_SPK_JOB
 RELEASE_CI_SPK_JOB=$(bash "$ROOT/scripts/release-ci-sha.sh" job-name "$pkg")
 
-if ! bash "$ROOT/scripts/release_fetch_ci_artifacts.sh" "$ci_sha" "$work" "$manifest"; then
-  exit 1
+fetched_sha=$(bash "$ROOT/scripts/release_fetch_manifest_artifacts.sh" \
+  "$manifest" "$work") || exit 1
+
+recorded_sha=$(release_manifest_ci_sha "$manifest")
+if [[ $fetched_sha != "$recorded_sha" ]]; then
+  release_manifest_set_artifact_sha "$manifest" "$fetched_sha"
 fi
 
 node "$ROOT/scripts/update-packages-json.mjs" \
