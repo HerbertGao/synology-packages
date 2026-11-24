@@ -22,14 +22,25 @@
 - 不在 PR 中合并、打 tag、发 Release、上传可安装 SPK 到公开渠道，**除非**维护者在本轮对话中明确授权。
 - 配方、脚本、`docs/packages.json` 与 Pages 相关变更均在 PR 分支完成，经审阅后合入 `master`。
 
-## 发布与部署（禁止自动化）
+## 发布与部署
 
-以下操作 **必须** 由用户显式授权后人工执行，Agent 不得擅自进行：
+### Agent 禁止（无维护者本轮明确授权时）
 
-- 合并 PR、创建/编辑 GitHub Release、将 Release 标为 **latest/stable**
+- 合并 PR（含 **release PR**）、设置仓库变量 `RELEASE_AUTOMATION_ENABLED`
+- 创建/编辑 GitHub Release、将 Release 标为 **latest/stable**
 - 推送或合并会改变线上 **`docs/packages.json`** 的变更（套件目录 / GitHub Pages）
 - 在 NAS 上安装 SPK、开启生产 SSH、访问生产凭据或修改生产 `config.toml`
 - 修改仓库可见性或协作者权限
+
+### Release PR 自动化（合入并启用后）
+
+见 [docs/release-automation.md](docs/release-automation.md)。流程简述：
+
+1. `feat`/`fix` 触及 `packages/openlist` 或 `packages/easytier` 且 Makefile 版本高于目录 → workflow **可**开草稿 **release PR**（**仅当** `RELEASE_AUTOMATION_ENABLED=true`）。
+2. 维护者审阅并合并 release PR → workflow 打 tag、上传 SPK、**默认 prerelease**；`docs/packages.json` 由 release PR 合入，**只改一个套件**。
+3. 自动化 **不会**合入自身、不会安装 NAS、不会把已有 Release（如 `easytier-2.7.0-10`）改为 stable。
+
+在变量未启用时，仍按下方各套件「人工」小节与 [docs/package-source.md](docs/package-source.md) 操作；**不要**在习惯上再手开一套与 release PR 重复的 Release+catalog PR。
 
 ## OpenList 专用
 
