@@ -1,6 +1,6 @@
 SPK_NAME = EasyTier
 SPK_VERS = 2.7.0
-SPK_REV = 8
+SPK_REV = 9
 SPK_ICON = src/EasyTier.png
 
 DEPENDS = cross/easytier
@@ -12,7 +12,7 @@ override DISTRIBUTOR_URL = https://github.com/HerbertGao/synology-packages
 override DISABLE_GITHUB_MAINTAINER = 1
 DESCRIPTION = EasyTier mesh VPN (official upstream linux x86_64 binaries). Private overlay build (not SynoCommunity official).
 DISPLAY_NAME = EasyTier
-CHANGELOG = "8. caphelper: complete FIPS 180-4 SHA-256 K table (fix hash_mismatch on large binaries). 7. caphelper: fix read_exe_gid; host TUN prep (Tailscale configure-host) then caps. 6. caphelper setuid helper for caps (unsigned SPK; no tool.capabilities). 5. TUN prestart rw diagnostic. 4. privilege tool caps (rejected on install). 3. ctrl-script root. 2. Fix privilege schema. 1. Initial overlay."
+CHANGELOG = "9. caphelper: DSM-verified LE vfs_cap blob; TUN mode settle after insmod. 8. caphelper: complete FIPS 180-4 SHA-256 K table (fix hash_mismatch on large binaries). 7. caphelper: fix read_exe_gid; host TUN prep (Tailscale configure-host) then caps. 6. caphelper setuid helper for caps (unsigned SPK; no tool.capabilities). 5. TUN prestart rw diagnostic. 4. privilege tool caps (rejected on install). 3. ctrl-script root. 2. Fix privilege schema. 1. Initial overlay."
 
 HOMEPAGE = https://github.com/EasyTier/EasyTier
 LICENSE = LGPL-3.0

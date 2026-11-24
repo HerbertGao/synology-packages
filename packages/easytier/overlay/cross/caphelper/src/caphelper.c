@@ -36,22 +36,29 @@
 #define TUN_MINOR 200
 #define INSMOD_PATH "/sbin/insmod"
 
+/* After insmod, devtmpfs may recreate /dev/net/tun as 0600; re-chmod until mode sticks. */
+#define TUN_MODE_SETTLE_RETRIES 12
+#define TUN_MODE_SETTLE_USEC 50000
+
 #ifndef EASYTIER_CORE_SHA256
 #define EASYTIER_CORE_SHA256 "0000000000000000000000000000000000000000000000000000000000000000"
 #endif
 
 /*
- * security.capability layout verified on DSM 7.3.2 VDSM (getfattr -x):
- * cap_net_admin,cap_net_raw+ep → 02 00 00 01 00 00 30 00 + zero padding (20 bytes).
+ * security.capability vfs_cap_data (VFS_CAP_REVISION_2) for cap_net_admin,cap_net_raw+ep.
+ * DSM 7.3.2 setcap writes little-endian __le32 fields (20 bytes total); getfattr hex
+ * display order is not on-disk byte order. Measured on VDSM: magic_etc 0x02000001
+ * (01 00 00 02), permitted 0x3000 (00 30 00 00). Wrong BE misread was rejected by
+ * get_vfs_caps_from_disk (EINVAL). See scripts/test-easytier-cap-blob.sh.
  */
 static const unsigned char k_cap_blob[] = {
-	0x02, 0x00, 0x00, 0x01,
-	0x00, 0x00, 0x30, 0x00,
+	0x01, 0x00, 0x00, 0x02,
+	0x00, 0x30, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00,
 };
-#define K_CAP_ACTIVE_LEN 12
+#define K_CAP_BLOB_LEN (sizeof(k_cap_blob))
 
 static void emit_fail(const char *what)
 {
@@ -352,6 +359,26 @@ static int chmod_tun_world_rw(void)
 	return 0;
 }
 
+static int ensure_tun_world_rw_settled(void)
+{
+	int attempt;
+	struct stat st;
+
+	for (attempt = 0; attempt < TUN_MODE_SETTLE_RETRIES; attempt++) {
+		if (chmod_tun_world_rw() != 0)
+			return -1;
+		if (lstat_nofollow_path(TUN_DEV_PATH, &st) != 0) {
+			emit_fail("tun_mode_lstat");
+			return -1;
+		}
+		if ((st.st_mode & 07777) == 0666)
+			return 0;
+		usleep(TUN_MODE_SETTLE_USEC);
+	}
+	emit_fail("tun_mode_settle");
+	return -1;
+}
+
 /*
  * Host TUN setup (Tailscale configure-host / configure synology equivalent):
  * load tun.ko when needed, ensure /dev/net/tun 10:200 with mode 0666.
@@ -371,10 +398,14 @@ static int prepare_host_tun(void)
 		return -1;
 	if (ensure_tun_node(&created) != 0)
 		return -1;
-	if (chmod_tun_world_rw() != 0)
+	if (ensure_tun_world_rw_settled() != 0)
 		return -1;
 	if (lstat_nofollow_path(TUN_DEV_PATH, &st) != 0) {
 		emit_fail("tun_final_lstat");
+		return -1;
+	}
+	if ((st.st_mode & 07777) != 0666) {
+		emit_fail("tun_final_mode");
 		return -1;
 	}
 	emit_tun_stage(loaded, created, st.st_mode);
@@ -563,9 +594,9 @@ static int caps_match_fd(int fd)
 {
 	unsigned char got[32];
 	ssize_t n = fgetxattr(fd, "security.capability", got, sizeof(got));
-	if (n < K_CAP_ACTIVE_LEN)
+	if (n != (ssize_t)K_CAP_BLOB_LEN)
 		return 0;
-	return memcmp(got, k_cap_blob, K_CAP_ACTIVE_LEN) == 0;
+	return memcmp(got, k_cap_blob, K_CAP_BLOB_LEN) == 0;
 }
 
 static int harden_dirat(int parent_fd, const char *name, gid_t gid)
