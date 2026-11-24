@@ -1,0 +1,172 @@
+# Release PR + catalog + GitHub Release (inert until repo var RELEASE_AUTOMATION_ENABLED=true).
+# Pattern aligned with HerbertGao/x_likes_downloader release.yml / scripts/release_*.sh.
+name: synology-packages-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: "Optional openlist/VERS or easytier/VERS to force a release PR"
+        required: false
+        type: string
+  push:
+    branches: [master]
+    tags:
+      - "openlist-*"
+      - "easytier-*"
+
+# Do not cancel in-flight publish when a new master push arrives.
+concurrency:
+  group: >-
+    ${{ github.ref_type == 'tag' && format('release-publish-{0}', github.ref)
+    || (github.event_name == 'push' && github.ref_type == 'branch'
+        && contains(github.event.head_commit.message, 'chore(release): publish')
+        && format('release-publish-{0}', github.sha))
+    || format('release-prepare-{0}', github.ref) }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'push' && github.ref_type == 'branch'
+    && !contains(github.event.head_commit.message, 'chore(release): publish') }}
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan release action
+    if: vars.RELEASE_AUTOMATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      pkg: ${{ steps.plan.outputs.pkg }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Plan
+        id: plan
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_EXPLICIT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.package_version || '' }}
+          RELEASE_FETCH_TAGS: "1"
+        run: |
+          bash scripts/release_plan.sh --github-output "$GITHUB_OUTPUT"
+
+  prepare-release:
+    name: Open or update release PR
+    needs: plan
+    if: needs.plan.outputs.mode == 'prepare'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: true
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: "22"
+
+      - name: Open draft release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ALLOW_PUSH: "1"
+          RELEASE_FETCH_TAGS: "1"
+          RELEASE_REV: ${{ github.sha }}
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_EXPLICIT_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.package_version || '' }}
+          RELEASE_BASE: master
+        run: bash scripts/release_open_pr.sh
+
+  enrich-catalog:
+    name: Refresh catalog on release branch
+    needs: [plan, prepare-release]
+    if: needs.plan.outputs.mode == 'prepare'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: release/${{ needs.plan.outputs.pkg }}-next
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: "22"
+
+      - name: Wait for CI artifacts and update packages.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_CI_WAIT_SEC: "7200"
+        run: |
+          set -euo pipefail
+          tag="${{ needs.plan.outputs.tag }}"
+          if ! bash scripts/release_try_catalog_update.sh "$tag"; then
+            echo "Artifacts not ready yet; release PR may need re-run or manual catalog edit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/packages.json ".release/${tag}.json"
+          git diff --cached --quiet && exit 0
+          git commit -m "chore(release): catalog fields for ${tag}"
+          git push origin HEAD
+
+  publish-release:
+    name: Tag and publish GitHub Release
+    needs: plan
+    if: needs.plan.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: true
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: "22"
+
+      - name: Verify catalog matches SPK artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ needs.plan.outputs.tag }}"
+          manifest=".release/${tag}.json"
+          test -f "$manifest"
+          # shellcheck source=scripts/release-common.sh
+          source scripts/release-common.sh
+          work=$(mktemp -d)
+          bash scripts/release_fetch_manifest_artifacts.sh "$manifest" "$work" >/dev/null
+          node scripts/update-packages-json.mjs --manifest "$manifest" --spk-dir "$work" --repo "${{ github.repository }}"
+          git diff --exit-code docs/packages.json || {
+            echo "::error::docs/packages.json does not match CI SPK hashes; fix release PR before publish."
+            exit 1
+          }
+
+      - name: Publish tag and Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ALLOW_PUSH: "1"
+          RELEASE_REV: ${{ github.sha }}
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_REF: ${{ github.ref }}
+        run: bash scripts/release_publish.sh

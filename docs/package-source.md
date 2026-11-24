@@ -16,6 +16,18 @@ https://herbertgao.com/synology-packages/packages.json
 
 ## 发布新套件或新版本
 
+### 自动化路径（推荐，需先启用）
+
+维护者合并 [release 自动化](release-automation.md) 并设置仓库变量 `RELEASE_AUTOMATION_ENABLED=true` 后：
+
+1. 在 overlay 中 bump `SPK_VERS` / `SPK_REV`，以 `feat`/`fix` 合入 `master`。
+2. CI 通过后，workflow 打开 **草稿 release PR**（`chore(release): publish …`）；`docs/packages.json` **仅更新正在发布的套件**。
+3. 维护者合并该 release PR 后，workflow 创建 **GitHub Release**（默认 **prerelease**）并依赖已合并的 `docs/packages.json` 刷新 Pages。
+
+Agent **不得**代为合并 release PR 或开启仓库变量；见 [AGENTS.md](../AGENTS.md)。
+
+### 人工路径（变量未启用或例外时）
+
 1. 在 GitHub 上为该版本创建 **Release** 并上传 SPK（以及该版本所需的其它资产；图标若可复用则不必随 tag 重复上传）。
 2. 将新图标（若需要）放入 `docs/icons/`。
 3. 编辑 `docs/packages.json`：在顶层 `packages` 数组中**新增一条对象**，或**更新**已有 `package` 的 `version`、`link`、`md5`、`sha256`、`size` 等字段。

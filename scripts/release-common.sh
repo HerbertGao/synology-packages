@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+# Shared helpers for release automation (sourced, not executed).
+
+release_die() {
+  printf 'release: %s\n' "$1" >&2
+  exit "${2:-1}"
+}
+
+release_info() {
+  printf 'release: %s\n' "$*" >&2
+}
+
+# Normalize package slug: openlist | easytier
+release_normalize_pkg() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+  openlist) printf 'openlist\n' ;;
+  easytier) printf 'easytier\n' ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+# Catalog JSON "package" field (case-sensitive for DSM).
+release_catalog_name() {
+  case "$1" in
+  openlist) printf 'openlist\n' ;;
+  easytier) printf 'EasyTier\n' ;;
+  *) return 1 ;;
+  esac
+}
+
+release_tag_prefix() {
+  case "$1" in
+  openlist | easytier) printf '%s\n' "$1" ;;
+  *) return 1 ;;
+  esac
+}
+
+# Print tag, e.g. openlist-4.2.10-3
+release_tag_for() {
+  local pkg=$1 ver=$2
+  printf '%s-%s\n' "$(release_tag_prefix "$pkg")" "$ver"
+}
+
+# Compare X.Y.Z-R: prints -1, 0, or 1.
+release_cmp_spk_version() {
+  local a=$1 b=$2
+  [[ $a == *-* && $b == *-* ]] || return 2
+  local a_vers=${a%-*} a_rev=${a##*-}
+  local b_vers=${b%-*} b_rev=${b##*-}
+  [[ $a_rev =~ ^[0-9]+$ && $b_rev =~ ^[0-9]+$ ]] || return 2
+  if [[ $a_vers == "$b_vers" ]]; then
+    if [ "$((10#$a_rev))" -lt "$((10#$b_rev))" ]; then
+      echo -1
+    elif [ "$((10#$a_rev))" -gt "$((10#$b_rev))" ]; then
+      echo 1
+    else
+      echo 0
+    fi
+    return 0
+  fi
+  if printf '%s\n' "$a_vers" "$b_vers" | sort -V | head -1 | grep -qxF "$a_vers"; then
+    echo -1
+  else
+    echo 1
+  fi
+}
+
+is_releasable_subject() {
+  [[ $1 =~ ^(feat|fix)(\([A-Za-z0-9._/-]+\))?(!)?:[[:space:]].+ ]]
+}
+
+package_path_glob() {
+  case "$1" in
+  openlist) printf 'packages/openlist/\n' ;;
+  easytier) printf 'packages/easytier/\n' ;;
+  *) return 1 ;;
+  esac
+}
+
+# Parse chore(release): publish openlist 4.2.10-4
+release_version_from_text() {
+  printf '%s\n' "$1" | sed -nE \
+    's/^chore\(release\): publish (openlist|easytier) ([0-9]+(\.[0-9]+)*-[0-9]+)( \(#[0-9]+\))?[[:space:]]*$/\2 \1/p' |
+    awk 'NR == 1 { print }'
+}
+
+tag_exists_full() {
+  git show-ref --verify --quiet "refs/tags/$1"
+}
+
+read_catalog_version() {
+  local catalog_pkg=$1
+  node - "$catalog_pkg" <<'NODE'
+const fs = require('fs');
+const catalogPkg = process.argv[2];
+const doc = JSON.parse(fs.readFileSync('docs/packages.json', 'utf8'));
+const row = doc.packages.find((p) => p.package === catalogPkg);
+if (!row) process.exit(2);
+process.stdout.write(row.version);
+NODE
+}
+
+# CI commit that produced SPK artifacts (from .release/<tag>.json).
+release_manifest_ci_sha() {
+  release_manifest_field "$1" ci_sha
+}
+
+# Read one manifest field (arrays joined by newline; booleans as true/false).
+# Ordered artifact source SHAs: content ci_sha, then prepare ci_head when distinct.
+release_manifest_artifact_candidates() {
+  local manifest=$1
+  local ci_sha="" ci_head=""
+  ci_sha=$(release_manifest_field "$manifest" ci_sha)
+  ci_head=$(release_manifest_field "$manifest" ci_head 2>/dev/null) || ci_head=""
+  printf '%s\n' "$ci_sha"
+  if [[ -n $ci_head && $ci_head != "$ci_sha" ]]; then
+    printf '%s\n' "$ci_head"
+  fi
+}
+
+release_manifest_set_artifact_sha() {
+  local manifest=$1 new_sha=$2
+  node - "$manifest" "$new_sha" <<'NODE'
+const fs = require('fs');
+const p = process.argv[2];
+const sha = process.argv[3];
+const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+m.ci_sha = sha;
+m.artifact_sha = sha;
+fs.writeFileSync(p, `${JSON.stringify(m, null, 2)}\n`);
+NODE
+}
+
+release_manifest_field() {
+  local manifest=$1 field=$2
+  node - "$manifest" "$field" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+const field = process.argv[3];
+const m = JSON.parse(fs.readFileSync(path, 'utf8'));
+let v = m[field];
+if (field === 'ci_sha' && !v) v = m.artifact_sha;
+if (v === undefined || v === null) process.exit(3);
+if (Array.isArray(v)) {
+  process.stdout.write(v.join('\n'));
+} else if (typeof v === 'boolean') {
+  process.stdout.write(v ? 'true' : 'false');
+} else {
+  process.stdout.write(String(v));
+}
+NODE
+}
