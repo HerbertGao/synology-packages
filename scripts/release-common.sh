@@ -104,12 +104,26 @@ NODE
 
 # CI commit that produced SPK artifacts (from .release/<tag>.json).
 release_manifest_ci_sha() {
-  local manifest=$1
-  node - "$manifest" <<'NODE'
+  release_manifest_field "$1" ci_sha
+}
+
+# Read one manifest field (arrays joined by newline; booleans as true/false).
+release_manifest_field() {
+  local manifest=$1 field=$2
+  node - "$manifest" "$field" <<'NODE'
 const fs = require('fs');
-const m = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const sha = m.ci_sha || m.artifact_sha;
-if (!sha) process.exit(3);
-process.stdout.write(sha);
+const path = process.argv[2];
+const field = process.argv[3];
+const m = JSON.parse(fs.readFileSync(path, 'utf8'));
+let v = m[field];
+if (field === 'ci_sha' && !v) v = m.artifact_sha;
+if (v === undefined || v === null) process.exit(3);
+if (Array.isArray(v)) {
+  process.stdout.write(v.join('\n'));
+} else if (typeof v === 'boolean') {
+  process.stdout.write(v ? 'true' : 'false');
+} else {
+  process.stdout.write(String(v));
+}
 NODE
 }

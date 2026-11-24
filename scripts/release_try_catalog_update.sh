@@ -22,7 +22,7 @@ ci_sha=$(release_manifest_ci_sha "$manifest") || {
   exit 1
 }
 
-pkg=$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.argv[2],'utf8')).package)" -- "$manifest")
+pkg=$(release_manifest_field "$manifest" package)
 export RELEASE_CI_SPK_JOB
 RELEASE_CI_SPK_JOB=$(bash "$ROOT/scripts/release-ci-sha.sh" job-name "$pkg")
 

@@ -88,6 +88,17 @@ sha=$(release_manifest_ci_sha "$manifest")
   exit 1
 }
 
+pkg_field=$(release_manifest_field "$manifest" package)
+[[ $pkg_field == easytier ]] || {
+  echo "release_manifest_field package: expected easytier got ${pkg_field}" >&2
+  exit 1
+}
+primary_field=$(release_manifest_field "$manifest" primary_spk)
+[[ $primary_field == "EasyTier_apollolake-7.3_2.7.0-11.spk" ]] || {
+  echo "release_manifest_field primary_spk unexpected: ${primary_field}" >&2
+  exit 1
+}
+
 node "$ROOT/scripts/write-release-manifest.mjs" \
   easytier 2.7.0-11 easytier-2.7.0-11 deadbeef "$fixture_root" \
   --preserve-from "$manifest"

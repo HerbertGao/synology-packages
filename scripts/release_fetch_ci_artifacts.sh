@@ -28,9 +28,9 @@ extra_assets=""
 if [[ -n $manifest && -f $manifest ]]; then
   # shellcheck source=scripts/release-common.sh
   source "$ROOT/scripts/release-common.sh"
-  pkg=$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.argv[2],'utf8')).package)" -- "$manifest")
-  primary_spk=$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.argv[2],'utf8')).primary_spk)" -- "$manifest")
-  extra_assets=$(node -e "const m=JSON.parse(require('fs').readFileSync(process.argv[2],'utf8'));console.log((m.extra_assets||[]).join('\n'))" -- "$manifest")
+  pkg=$(release_manifest_field "$manifest" package)
+  primary_spk=$(release_manifest_field "$manifest" primary_spk)
+  extra_assets=$(release_manifest_field "$manifest" extra_assets)
   if [[ -z $spk_job ]]; then
     spk_job=$(bash "$ROOT/scripts/release-ci-sha.sh" job-name "$pkg")
   fi
