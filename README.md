@@ -5,7 +5,7 @@
 当前目标（均以 **DS918+** 类 / `apollolake` / x86_64 / **DSM 7.3** 为首批构建范围）：
 
 - **OpenList v4.2.10** — `docs/openlist/`、`packages/openlist/`
-- **EasyTier v2.7.0**（官方 Release 二进制 overlay）— `docs/easytier/`、`packages/easytier/`
+- **EasyTier v2.7.0-6**（官方 Release 二进制 + caphelper 施 cap）— `docs/easytier/`、`packages/easytier/`
 
 OpenList 套件对外端口与上游一致：**5244**（`SERVICE_PORT` / `ADMIN_PORT` / DSM 集成元数据）。Overlay 不会把 DSM 元数据同步为 `config.json` 中的自定义 `http_port`；既有非 5244 存量部署的迁移不在仓库文档范围内。
 

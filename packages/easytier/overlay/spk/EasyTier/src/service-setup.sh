@@ -3,6 +3,8 @@
 # shellcheck disable=SC2034,SC2154
 
 EASYTIER_CORE="${SYNOPKG_PKGDEST}/bin/easytier-core"
+CAPHELPER="${SYNOPKG_PKGDEST}/bin/helper/caphelper"
+CAPHELPER_OUT="${SYNOPKG_PKGVAR}/caphelper.out"
 CONFIG_FILE="${SYNOPKG_PKGVAR}/config.toml"
 CONFIG_TEMPLATE="${SYNOPKG_PKGDEST}/var/config.toml"
 
@@ -46,62 +48,20 @@ validate_preupgrade ()
     fi
 }
 
-easytier_locate_getcap ()
-{
-    if command -v getcap >/dev/null 2>&1; then
-        command -v getcap
-        return 0
-    fi
-    for candidate in /sbin/getcap /usr/sbin/getcap /bin/getcap; do
-        if [ -x "${candidate}" ]; then
-            echo "${candidate}"
-            return 0
-        fi
-    done
-    return 1
-}
-
-# DSM applies file capabilities from conf/privilege tool at install time (not via postinst setcap).
-easytier_warn_if_core_capabilities_missing ()
-{
-    if [ ! -f "${EASYTIER_CORE}" ]; then
-        echo "Warning: easytier-core not found at ${EASYTIER_CORE}; privilege tool capabilities may not apply until the binary is present."
-        return 0
-    fi
-
-    getcap_bin="$(easytier_locate_getcap)" || {
-        echo "Warning: getcap not available; cannot verify file capabilities on easytier-core (declared in privilege tool)."
-        return 0
-    }
-
-    cap_out="$("${getcap_bin}" "${EASYTIER_CORE}" 2>/dev/null)" || cap_out=""
-    if [ -z "${cap_out}" ]; then
-        echo "Warning: no file capabilities reported on easytier-core; TUN may fail until DSM applies privilege tool caps (some sideloaded installs may require manual setcap after upgrade)."
-        return 0
-    fi
-    if ! echo "${cap_out}" | grep -q 'cap_net_admin'; then
-        echo "Warning: cap_net_admin not present on easytier-core per getcap; TUN creation may fail (check privilege tool or apply caps manually)."
-    fi
-    if ! echo "${cap_out}" | grep -q 'cap_net_raw'; then
-        echo "Warning: cap_net_raw not present on easytier-core per getcap; TUN creation may fail (check privilege tool or apply caps manually)."
-    fi
-}
-
 service_postinst ()
 {
-    easytier_warn_if_core_capabilities_missing
     if [ "${SYNOPKG_PKG_STATUS}" = "INSTALL" ]; then
         if [ ! -f "${CONFIG_FILE}" ] && [ -f "${CONFIG_TEMPLATE}" ]; then
             $CP "${CONFIG_TEMPLATE}" "${CONFIG_FILE}"
         fi
         echo "EasyTier installed. Edit ${CONFIG_FILE} with your existing node identity (hostname, instance_id, listeners, peers, secrets) before starting."
         echo "A comment-only template was placed if no config existed; the package does not generate network keys or instance IDs."
+        echo "File capabilities on easytier-core are applied at start via ${CAPHELPER} (see ${CAPHELPER_OUT} after first start)."
     fi
 }
 
 service_postupgrade ()
 {
-    easytier_warn_if_core_capabilities_missing
     if [ ! -f "${CONFIG_FILE}" ]; then
         echo "config.toml missing after upgrade restore; manual intervention required."
         exit 1
@@ -128,6 +88,27 @@ easytier_require_configured ()
     fi
     echo "EasyTier is not configured. Edit ${CONFIG_FILE} with listeners, peers, and credentials, then start again."
     return 1
+}
+
+easytier_run_caphelper ()
+{
+    if [ ! -x "${CAPHELPER}" ]; then
+        echo "Error: caphelper missing at ${CAPHELPER}; reinstall the package."
+        return 1
+    fi
+    mkdir -p "${SYNOPKG_PKGVAR}"
+    : >"${CAPHELPER_OUT}"
+    if ! /usr/bin/env -i "${CAPHELPER}" >>"${CAPHELPER_OUT}" 2>&1; then
+        echo "Error: caphelper failed; see ${CAPHELPER_OUT}:"
+        cat "${CAPHELPER_OUT}"
+        return 1
+    fi
+    if ! grep -q 'RESULT=ok' "${CAPHELPER_OUT}"; then
+        echo "Error: caphelper did not report success; see ${CAPHELPER_OUT}:"
+        cat "${CAPHELPER_OUT}"
+        return 1
+    fi
+    return 0
 }
 
 # Tun device path (overridable in offline tests only).
@@ -179,7 +160,7 @@ easytier_ensure_tun ()
     fi
 
     if ! easytier_tun_rw_by_package_user; then
-        echo "Error: ${EASYTIER_TUN_DEV} is not readable/writable by the EasyTier package user (EACCES-style failure at start); fix host device ACL/mode or file capabilities on easytier-core—this script does not change device permissions."
+        echo "Error: ${EASYTIER_TUN_DEV} is not readable/writable by the EasyTier package user (EACCES-style failure at start); fix host device ACL/mode or ensure caphelper applied caps on easytier-core."
         return 1
     fi
 
@@ -197,5 +178,7 @@ service_prestart ()
     if ! easytier_require_configured; then
         exit 1
     fi
-    easytier_warn_if_core_capabilities_missing
+    if ! easytier_run_caphelper; then
+        exit 1
+    fi
 }

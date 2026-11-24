@@ -6,11 +6,10 @@
     "groupname": "EasyTier",
     "tool": [
         {
-            "relpath": "bin/easytier-core",
-            "user": "package",
+            "relpath": "bin/helper/caphelper",
+            "user": "root",
             "group": "package",
-            "capabilities": "cap_net_admin,cap_net_raw",
-            "permission": "0755"
+            "permission": "4550"
         }
     ]
 }
