@@ -52,4 +52,9 @@ if ! grep -q 'ensure_tun_world_rw_settled' "${SRC}"; then
   exit 1
 fi
 
+if ! grep -q 'TUN_MODE_STICK_USEC' "${SRC}"; then
+  echo "FAIL: caphelper must verify TUN 0666 persists across stick delay" >&2
+  exit 1
+fi
+
 echo "OK EasyTier cap blob (DSM 7.3.2 setcap fixture, 20 bytes LE vfs_cap_data v2)"

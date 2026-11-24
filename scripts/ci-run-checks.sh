@@ -12,6 +12,7 @@ chmod +x "${ROOT}"/scripts/*.sh
 "${ROOT}/scripts/test-easytier-caphelper-host.sh"
 "${ROOT}/scripts/test-easytier-caphelper-sha256.sh"
 "${ROOT}/scripts/test-easytier-cap-blob.sh"
+"${ROOT}/scripts/test-easytier-caphelper-tun-settle.sh"
 "${ROOT}/scripts/test-easytier-caphelper-prestart.sh"
 "${ROOT}/scripts/check-port-consistency.sh"
 "${ROOT}/scripts/test-upgrade-preservation.sh"

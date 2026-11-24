@@ -142,6 +142,23 @@ easytier_tun_rw_by_package_user ()
     return 0
 }
 
+# Brief retry after caphelper: mode 0666 can lag behind the helper STAGE=tun line on DSM.
+easytier_tun_rw_settled_by_package_user ()
+{
+    _max="${EASYTIER_TUN_RW_RETRIES:-8}"
+    _i=0
+    while [ "${_i}" -lt "${_max}" ]; do
+        if easytier_tun_rw_by_package_user; then
+            return 0
+        fi
+        _i=$((_i + 1))
+        if [ "${_i}" -lt "${_max}" ]; then
+            sleep 0.05
+        fi
+    done
+    return 1
+}
+
 # Post-caphelper check: package user must open /dev/net/tun rw (caphelper prepares the node as root).
 easytier_ensure_tun ()
 {
@@ -159,7 +176,7 @@ easytier_ensure_tun ()
         return 1
     fi
 
-    if ! easytier_tun_rw_by_package_user; then
+    if ! easytier_tun_rw_settled_by_package_user; then
         echo "Error: ${EASYTIER_TUN_DEV} is not readable/writable by the EasyTier package user after caphelper (expected mode 0666); see ${CAPHELPER_OUT}."
         return 1
     fi
